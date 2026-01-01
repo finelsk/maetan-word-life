@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { collection, addDoc, getDocs, query, where, orderBy, setDoc, doc } from 'firebase/firestore';
 import { db } from './firebase';
+import { queryGeminiAgent, fetchAllNames } from './geminiAgent';
 
 function App() {
   const [selectedDate, setSelectedDate] = useState('');
@@ -14,6 +15,14 @@ function App() {
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [showRanking, setShowRanking] = useState(false);
   const [rankings, setRankings] = useState(null);
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [showAgentScreen, setShowAgentScreen] = useState(false);
+  const [password, setPassword] = useState('');
+  const [agentQuestion, setAgentQuestion] = useState('');
+  const [agentAnswer, setAgentAnswer] = useState('');
+  const [agentLoading, setAgentLoading] = useState(false);
+  const [availableNames, setAvailableNames] = useState([]);
+  const [passwordError, setPasswordError] = useState('');
 
   // 날짜 포맷팅 함수
   const formatDate = (dateString) => {
@@ -595,10 +604,178 @@ function App() {
     }
   };
 
+  // 타이틀 클릭 핸들러
+  const handleTitleClick = async () => {
+    setShowPasswordModal(true);
+    setPassword('');
+    setPasswordError('');
+    // 이름 목록 미리 로드 (패스워드 검증용)
+    try {
+      const names = await fetchAllNames();
+      setAvailableNames(names);
+    } catch (error) {
+      console.error('이름 목록 로드 오류:', error);
+    }
+  };
+
+  // 패스워드 검증 및 Agent 화면 진입
+  const handlePasswordSubmit = async () => {
+    if (!password.trim()) {
+      setPasswordError('패스워드를 입력해주세요.');
+      return;
+    }
+
+    // DB에 등록된 이름인지 확인 (패스워드로 사용)
+    if (!availableNames.includes(password.trim())) {
+      setPasswordError('패스워드가 틀립니다.');
+      // 2초 후 모달 닫기
+      setTimeout(() => {
+        setShowPasswordModal(false);
+        setPassword('');
+        setPasswordError('');
+      }, 2000);
+      return;
+    }
+
+    // 패스워드가 DB에 등록된 이름이면 Agent 화면으로 이동
+    setPasswordError('');
+    setShowPasswordModal(false);
+    setShowAgentScreen(true);
+    setPassword(''); // 보안을 위해 패스워드 초기화
+  };
+
+  // Agent 질문 처리
+  const handleAgentQuery = async () => {
+    if (!agentQuestion.trim()) {
+      alert('질문을 입력해주세요.');
+      return;
+    }
+
+    setAgentLoading(true);
+    setAgentAnswer('');
+
+    try {
+      // 전체 데이터 조회 (userName을 null로 전달)
+      const result = await queryGeminiAgent(agentQuestion, null, { limitCount: 1000 });
+      setAgentAnswer(result.answer);
+    } catch (error) {
+      console.error('Gemini Agent 오류:', error);
+      let errorMessage = '질문 처리 중 오류가 발생했습니다.\n\n';
+      
+      if (error.message.includes('API 키')) {
+        errorMessage += 'Gemini API 키가 설정되지 않았습니다.\n';
+        errorMessage += '환경 변수 VITE_GEMINI_API_KEY를 설정해주세요.';
+      } else {
+        errorMessage += error.message || '알 수 없는 오류가 발생했습니다.';
+      }
+      
+      alert(errorMessage);
+      setAgentAnswer('');
+    } finally {
+      setAgentLoading(false);
+    }
+  };
+
+  // Agent 화면에서 뒤로가기
+  const handleBackFromAgent = () => {
+    setShowAgentScreen(false);
+    setAgentQuestion('');
+    setAgentAnswer('');
+    setPasswordError('');
+  };
+
+  // Agent 화면
+  if (showAgentScreen) {
+    return (
+      <div className="container">
+        <h1>🤖 AI 데이터 분석</h1>
+        <div style={{ marginBottom: '20px', padding: '15px', backgroundColor: '#f5f5f5', borderRadius: '8px' }}>
+          <div style={{ color: '#4caf50', fontSize: '16px', fontWeight: 'bold' }}>
+            ✓ 전체 데이터 조회 가능합니다
+          </div>
+        </div>
+
+        <div style={{ marginBottom: '20px' }}>
+          <label style={{ display: 'block', marginBottom: '10px', fontWeight: 'bold' }}>질문</label>
+          <textarea
+            value={agentQuestion}
+            onChange={(e) => setAgentQuestion(e.target.value)}
+            placeholder="예: 내 성경읽기 총합은? / 42구역의 통계는? / 가장 많이 읽은 사람은?"
+            style={{
+              width: '100%',
+              minHeight: '120px',
+              padding: '12px',
+              borderRadius: '8px',
+              border: '1px solid #ddd',
+              fontSize: '16px',
+              resize: 'vertical'
+            }}
+            disabled={agentLoading}
+          />
+        </div>
+
+        <div style={{ marginBottom: '20px' }}>
+          <button
+            onClick={handleAgentQuery}
+            disabled={agentLoading || !agentQuestion.trim()}
+            style={{
+              width: '100%',
+              padding: '16px',
+              backgroundColor: agentLoading || !agentQuestion.trim() ? '#ccc' : '#4285f4',
+              color: 'white',
+              border: 'none',
+              borderRadius: '8px',
+              fontSize: '16px',
+              fontWeight: 'bold',
+              cursor: agentLoading || !agentQuestion.trim() ? 'not-allowed' : 'pointer'
+            }}
+          >
+            {agentLoading ? '분석 중...' : '질문하기'}
+          </button>
+        </div>
+
+        {agentAnswer && (
+          <div style={{
+            padding: '20px',
+            backgroundColor: '#f5f5f5',
+            borderRadius: '8px',
+            whiteSpace: 'pre-wrap',
+            lineHeight: '1.6',
+            minHeight: '200px',
+            maxHeight: '500px',
+            overflow: 'auto'
+          }}>
+            <strong style={{ display: 'block', marginBottom: '10px', fontSize: '18px' }}>답변:</strong>
+            <div>{agentAnswer}</div>
+          </div>
+        )}
+
+        <div style={{ marginTop: '20px' }}>
+          <button
+            onClick={handleBackFromAgent}
+            style={{
+              width: '100%',
+              padding: '16px',
+              backgroundColor: '#666',
+              color: 'white',
+              border: 'none',
+              borderRadius: '8px',
+              fontSize: '16px',
+              fontWeight: 'bold',
+              cursor: 'pointer'
+            }}
+          >
+            뒤로가기
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   if (showRanking && rankings) {
     return (
       <div className="container">
-        <h1>매탄교구 말씀생활</h1>
+        <h1 style={{ cursor: 'pointer' }} onClick={handleTitleClick}>매탄교구 말씀생활</h1>
         <div className="ranking-section">
           <div className="ranking-header">
             <h2>순위</h2>
@@ -809,7 +986,7 @@ function App() {
 
   return (
     <div className="container">
-      <h1>매탄교구 말씀생활</h1>
+      <h1 style={{ cursor: 'pointer' }} onClick={handleTitleClick}>매탄교구 말씀생활</h1>
       
       <div className="form-section">
         <table className="info-table">
@@ -977,6 +1154,52 @@ function App() {
         </div>
       )}
 
+      {showPasswordModal && (
+        <div className="modal-overlay">
+          <div className="modal-content">
+            <h3>🔐 패스워드 입력</h3>
+            <div style={{ marginBottom: '20px' }}>
+              <input
+                type="text"
+                value={password}
+                onChange={(e) => {
+                  setPassword(e.target.value);
+                  setPasswordError('');
+                }}
+                onKeyPress={(e) => {
+                  if (e.key === 'Enter') {
+                    handlePasswordSubmit();
+                  }
+                }}
+                placeholder="패스워드를 입력하세요"
+                style={{
+                  width: '100%',
+                  padding: '12px',
+                  borderRadius: '8px',
+                  border: passwordError ? '2px solid #f44336' : '1px solid #ddd',
+                  fontSize: '16px'
+                }}
+                autoFocus
+              />
+              {passwordError && (
+                <div style={{ color: '#f44336', fontSize: '14px', marginTop: '5px' }}>{passwordError}</div>
+              )}
+            </div>
+            <div className="modal-buttons">
+              <button className="confirm-button" onClick={handlePasswordSubmit}>
+                확인
+              </button>
+              <button className="cancel-button" onClick={() => {
+                setShowPasswordModal(false);
+                setPassword('');
+                setPasswordError('');
+              }}>
+                취소
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
