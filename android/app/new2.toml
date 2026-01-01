@@ -1,0 +1,4 @@
+MYAPP_RELEASE_STORE_FILE = your_keystore_file.jks
+MYAPP_RELEASE_STORE_PASSWORD = your_store_password
+MYAPP_RELEASE_KEY_ALIAS = your_key_alias
+MYAPP_RELEASE_KEY_PASSWORD = your_key_password

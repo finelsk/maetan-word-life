@@ -1,0 +1,837 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Malgun Gothic', '맑은 고딕', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  padding: 20px;
+  min-height: 100vh;
+}
+
+.container {
+  max-width: 900px;
+  margin: 0 auto;
+  background-color: white;
+  padding: 40px;
+  border-radius: 20px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
+}
+
+h1 {
+  text-align: center;
+  margin-bottom: 30px;
+  color: #333;
+  font-size: 25px;
+}
+
+.date-input-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  justify-content: space-between;
+}
+
+.date-display {
+  font-size: 17px;
+  font-weight: 600;
+  color: #333;
+  flex: 1;
+  min-width: 200px;
+}
+
+.date-input {
+  padding: 8px 12px;
+  border: 2px solid #e0e0e0;
+  border-radius: 8px;
+  font-size: 14px;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all 0.3s;
+  min-width: 140px;
+  background-color: white;
+  color: #333;
+}
+
+.date-input:hover {
+  border-color: #667eea;
+  background-color: #f8f9ff;
+}
+
+.date-input:focus {
+  outline: none;
+  border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+  background-color: white;
+}
+
+h2 {
+  text-align: right;
+  margin-bottom: 20px;
+  color: #333;
+  font-size: 21px;
+}
+
+h3 {
+  margin-bottom: 15px;
+  color: #333;
+  font-size: 19px;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 24px;
+  border: 2px solid #e0e0e0;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  background: white;
+}
+
+table th,
+table td {
+  border: 1px solid #e0e0e0;
+  padding: 16px;
+  text-align: left;
+}
+
+table th {
+  background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+  font-weight: 600;
+  color: #333;
+  font-size: 16px;
+}
+
+table tr:hover {
+  background-color: #f8f9ff;
+  transition: background-color 0.2s;
+}
+
+.info-table td:first-child {
+  width: 25%;
+  background: linear-gradient(135deg, #f8f9ff 0%, #e8edff 100%);
+  font-weight: 600;
+  color: #555;
+  font-size: 16px;
+}
+
+.activity-table td:first-child {
+  width: 30%;
+  background: linear-gradient(135deg, #f8f9ff 0%, #e8edff 100%);
+  font-weight: 600;
+  color: #555;
+  font-size: 16px;
+}
+
+.input-field {
+  width: 100%;
+  padding: 10px 12px;
+  border: 2px solid #e0e0e0;
+  border-radius: 8px;
+  font-size: 15px;
+  transition: all 0.3s;
+}
+
+.input-field:focus {
+  outline: none;
+  border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.bible-reading-input {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.bible-label {
+  font-weight: 600;
+  color: #333;
+  font-size: 15px;
+}
+
+.bible-input {
+  flex: 1;
+  text-align: center;
+  font-size: 16px;
+  font-weight: 500;
+  padding: 12px;
+}
+
+.bible-unit {
+  font-weight: 600;
+  color: #666;
+  font-size: 15px;
+  min-width: 30px;
+}
+
+.button-group {
+  display: flex;
+  gap: 10px;
+}
+
+.button-group button {
+  flex: 1;
+  padding: 12px 20px;
+  border: 2px solid #e0e0e0;
+  background-color: white;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 15px;
+  font-weight: 500;
+  transition: all 0.3s;
+}
+
+.button-group button:hover {
+  background-color: #f5f5f5;
+  border-color: #667eea;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.button-group button.active {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border-color: transparent;
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}
+
+.button-text-multiline {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.2;
+  gap: 2px;
+}
+
+.button-text-multiline span {
+  display: block;
+}
+
+.disabled-text {
+  color: #999;
+  font-style: italic;
+}
+
+.save-button {
+  width: 100%;
+  padding: 16px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  border-radius: 12px;
+  font-size: 16px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.3s;
+  box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+}
+
+.save-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(102, 126, 234, 0.5);
+}
+
+.save-button:active {
+  transform: translateY(0);
+}
+
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+.modal-content {
+  background-color: white;
+  padding: 30px;
+  border-radius: 16px;
+  max-width: 500px;
+  width: 90%;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+  animation: modalSlideIn 0.3s ease-out;
+}
+
+@keyframes modalSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.modal-content h3 {
+  margin-bottom: 20px;
+  text-align: center;
+  color: #333;
+}
+
+.confirm-info {
+  margin-bottom: 20px;
+}
+
+.confirm-info p {
+  margin-bottom: 10px;
+  padding: 8px;
+  background-color: #f9f9f9;
+  border-radius: 4px;
+}
+
+.modal-buttons {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+}
+
+.confirm-button,
+.cancel-button {
+  padding: 10px 20px;
+  border: none;
+  border-radius: 4px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background-color 0.3s;
+}
+
+.confirm-button {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}
+
+.confirm-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(102, 126, 234, 0.5);
+}
+
+.cancel-button {
+  background-color: #f44336;
+  color: white;
+  box-shadow: 0 4px 12px rgba(244, 67, 54, 0.3);
+}
+
+.cancel-button:hover {
+  background-color: #da190b;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(244, 67, 54, 0.4);
+}
+
+.ranking-section {
+  margin-top: 20px;
+}
+
+.ranking-header {
+  text-align: center;
+  margin-bottom: 20px;
+}
+
+.ranking-header h2 {
+  font-size: 29px;
+  color: #333;
+  margin: 0;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.total-participants {
+  text-align: center;
+  margin-bottom: 25px;
+  padding: 15px;
+  background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.participants-label {
+  font-size: 16px;
+  color: #666;
+  font-weight: 500;
+}
+
+.participants-count {
+  font-size: 20px;
+  color: #f44336;
+  font-weight: 700;
+}
+
+.ranking-cards-container {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+  margin-bottom: 24px;
+}
+
+.district-ranking-card,
+.personal-ranking-card {
+  background: white;
+  border-radius: 16px;
+  padding: 24px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+  border: 1px solid #f0f0f0;
+  transition: transform 0.3s, box-shadow 0.3s;
+}
+
+.district-ranking-card:hover,
+.personal-ranking-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.12);
+}
+
+.card-header {
+  margin-bottom: 20px;
+  padding-bottom: 16px;
+  border-bottom: 2px solid #f0f0f0;
+}
+
+.card-header h3 {
+  margin: 0 0 8px 0;
+  font-size: 23px;
+  color: #333;
+  font-weight: 700;
+}
+
+.card-subtitle {
+  font-size: 15px;
+  color: #666;
+  font-weight: 500;
+}
+
+.district-stats {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 20px;
+}
+
+.stat-item {
+  text-align: center;
+  padding: 20px;
+  background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+  border-radius: 12px;
+  transition: transform 0.3s;
+}
+
+.stat-item:hover {
+  transform: scale(1.05);
+}
+
+.stat-label {
+  font-size: 14px;
+  color: #666;
+  margin-bottom: 12px;
+  font-weight: 500;
+}
+
+.stat-value {
+  font-size: 25px;
+  font-weight: 700;
+}
+
+.rank-badge {
+  display: inline-block;
+  padding: 8px 16px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border-radius: 20px;
+  font-size: 19px;
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+}
+
+.rank-badge.rank-1 {
+  background: linear-gradient(135deg, #ff6b6b 0%, #ee5a6f 100%);
+  box-shadow: 0 4px 12px rgba(255, 107, 107, 0.3);
+}
+
+.rank-badge.rank-2-3 {
+  background: linear-gradient(135deg, #87CEEB 0%, #B0E0E6 100%);
+  box-shadow: 0 4px 12px rgba(135, 206, 235, 0.3);
+}
+
+.rank-badges-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: center;
+  align-items: center;
+}
+
+.district-ranking-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+}
+
+.district-rank-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  justify-content: flex-start;
+  flex-wrap: wrap;
+  padding: 4px 0;
+}
+
+.rank-number-large {
+  font-size: 18px;
+  font-weight: 700;
+  min-width: 40px;
+  text-align: left;
+}
+
+.rank-number-large.rank-1 {
+  color: #f44336; /* 빨강색 */
+}
+
+.rank-number-large.rank-2-3 {
+  color: #87CEEB; /* 파스텔 파랑색 (Sky Blue) */
+}
+
+.rank-number-large:not(.rank-1):not(.rank-2-3) {
+  color: #333; /* 기본 색상 */
+}
+
+.rank-count {
+  font-size: 16px;
+  font-weight: 600;
+  color: #333;
+  margin-left: auto;
+}
+
+.personal-stat-others {
+  margin-top: 8px;
+  font-size: 13px;
+  color: #666;
+  line-height: 1.6;
+}
+
+.other-rank-item {
+  margin-top: 4px;
+}
+
+.no-data {
+  color: #999;
+  font-size: 19px;
+}
+
+.personal-stats {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+}
+
+.personal-stat-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+  border-radius: 12px;
+  transition: all 0.3s;
+  border: 2px solid transparent;
+  gap: 16px;
+}
+
+.personal-stat-item:hover {
+  transform: translateY(-4px);
+  border-color: #667eea;
+  box-shadow: 0 8px 20px rgba(102, 126, 234, 0.2);
+}
+
+.personal-stat-icon {
+  font-size: 36px;
+  min-width: 44px;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.personal-stat-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.personal-stat-label {
+  font-size: 15px;
+  color: #666;
+  margin-bottom: 6px;
+  font-weight: 500;
+}
+
+.personal-stat-value {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+}
+
+.value-number {
+  font-size: 29px;
+  font-weight: 700;
+  color: #333;
+}
+
+.value-unit {
+  font-size: 17px;
+  color: #666;
+  font-weight: 500;
+}
+
+.personal-stat-rank {
+  flex-shrink: 0;
+  margin-left: auto;
+}
+
+.rank-number {
+  display: inline-block;
+  padding: 8px 16px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border-radius: 20px;
+  font-size: 15px;
+  font-weight: 600;
+  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+  white-space: nowrap;
+}
+
+.no-rank {
+  color: #999;
+  font-size: 15px;
+}
+
+/* 반응형 디자인 */
+@media (max-width: 768px) {
+  .container {
+    padding: 20px;
+    margin: 10px;
+  }
+
+  h1 {
+    font-size: 20px;
+    margin-bottom: 20px;
+  }
+
+  .ranking-header h2 {
+    font-size: 25px;
+  }
+
+  .total-participants {
+    padding: 12px;
+    margin-bottom: 20px;
+  }
+
+  .participants-label {
+    font-size: 14px;
+  }
+
+  .participants-count {
+    font-size: 18px;
+  }
+
+  .ranking-cards-container {
+    grid-template-columns: 1fr;
+    gap: 20px;
+  }
+
+  .district-stats {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+
+  .personal-stats {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .personal-stat-item {
+    padding: 14px 16px;
+    gap: 12px;
+  }
+
+  .personal-stat-icon {
+    font-size: 32px;
+    min-width: 40px;
+  }
+
+  .personal-stat-item {
+    padding: 14px 16px;
+    gap: 12px;
+  }
+
+  .personal-stat-icon {
+    font-size: 32px;
+    min-width: 40px;
+  }
+
+  .personal-stat-icon {
+    font-size: 28px;
+    margin-right: 12px;
+    min-width: 36px;
+  }
+
+  .value-number {
+    font-size: 24px;
+  }
+
+  .card-header h3 {
+    font-size: 20px;
+  }
+
+  .district-ranking-card,
+  .personal-ranking-card {
+    padding: 20px;
+    margin-bottom: 20px;
+  }
+
+  .stat-item {
+    padding: 16px;
+  }
+
+  .stat-value {
+    font-size: 20px;
+  }
+
+  .rank-badge {
+    font-size: 16px;
+    padding: 6px 12px;
+  }
+
+  table {
+    font-size: 14px;
+  }
+
+  table th,
+  table td {
+    padding: 10px 8px;
+  }
+
+  .input-field {
+    font-size: 16px; /* iOS 줌 방지 */
+  }
+
+  .date-input-wrapper {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+
+  .date-display {
+    font-size: 15px;
+    min-width: auto;
+    text-align: left;
+  }
+
+  .date-input {
+    width: 100%;
+    min-width: auto;
+  }
+
+  table th,
+  table td {
+    padding: 12px 10px;
+    font-size: 14px;
+  }
+
+  .info-table td:first-child,
+  .activity-table td:first-child {
+    width: 35%;
+    font-size: 14px;
+  }
+}
+
+@media (max-width: 480px) {
+  body {
+    padding: 10px;
+  }
+
+  .container {
+    padding: 16px;
+    border-radius: 12px;
+  }
+
+  h1 {
+    font-size: 18px;
+  }
+
+  .ranking-header h2 {
+    font-size: 20px;
+  }
+
+  .card-header h3 {
+    font-size: 18px;
+  }
+
+  .personal-stat-item {
+    padding: 14px;
+  }
+
+  .personal-stat-icon {
+    font-size: 24px;
+    margin-right: 10px;
+    min-width: 32px;
+  }
+
+  .value-number {
+    font-size: 22px;
+  }
+
+  .value-unit {
+    font-size: 14px;
+  }
+
+  .rank-number {
+    font-size: 12px;
+    padding: 3px 10px;
+  }
+
+  .stat-item {
+    padding: 14px;
+  }
+
+  .stat-value {
+    font-size: 18px;
+  }
+
+  .rank-badge {
+    font-size: 14px;
+    padding: 5px 10px;
+  }
+
+  .save-button,
+  .back-button {
+    padding: 14px;
+    font-size: 15px;
+  }
+}
+
+.back-button {
+  width: 100%;
+  padding: 16px;
+  background: linear-gradient(135deg, #2196F3 0%, #21CBF3 100%);
+  color: white;
+  border: none;
+  border-radius: 12px;
+  font-size: 16px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.3s;
+  margin-top: 20px;
+  box-shadow: 0 4px 15px rgba(33, 150, 243, 0.4);
+}
+
+.back-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(33, 150, 243, 0.5);
+}
+
