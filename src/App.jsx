@@ -23,6 +23,8 @@ function App() {
   const [agentLoading, setAgentLoading] = useState(false);
   const [availableNames, setAvailableNames] = useState([]);
   const [passwordError, setPasswordError] = useState('');
+  const [showNoChangesModal, setShowNoChangesModal] = useState(false);
+  const [showSaveSuccessModal, setShowSaveSuccessModal] = useState(false);
 
   // 날짜 포맷팅 함수
   const formatDate = (dateString) => {
@@ -201,9 +203,9 @@ function App() {
 
       if (!hasChanges) {
         // 변경 내용이 없음
-        alert('변경내용이 없습니다.');
         await calculateRankings();
-        setShowRanking(true);
+        setShowNoChangesModal(true);
+        // 모달 확인 후 순위 화면으로 이동하도록 처리
         return;
       }
 
@@ -216,8 +218,8 @@ function App() {
       // 순위 계산 및 표시
       try {
         await calculateRankings();
-        setShowRanking(true);
-        alert('데이터가 성공적으로 저장되었습니다!');
+        setShowSaveSuccessModal(true);
+        // 모달 확인 후 순위 화면으로 이동하도록 처리
       } catch (rankingError) {
         console.error('순위 계산 오류:', rankingError);
         alert('데이터는 저장되었지만 순위 계산 중 오류가 발생했습니다.');
@@ -597,6 +599,8 @@ function App() {
   // 순위 화면에서 뒤로가기
   const handleBackToForm = async () => {
     setShowRanking(false);
+    setShowNoChangesModal(false); // 모달 상태 초기화
+    setShowSaveSuccessModal(false); // 저장 성공 모달 상태 초기화
     
     // 현재 날짜/구역/이름의 최신 데이터 불러오기
     if (district && name && selectedDate) {
@@ -996,7 +1000,7 @@ function App() {
               <td>
                 <div className="date-input-wrapper">
                   <span className="date-display">
-                    {currentDate} ({currentDayOfWeek}요일)
+                    {currentDate} ({currentDayOfWeek})
                   </span>
                   <input
                     type="date"
@@ -1131,7 +1135,7 @@ function App() {
           <div className="modal-content">
             <h3>입력 내용 확인</h3>
             <div className="confirm-info">
-              <p><strong>일자:</strong> {currentDate} ({currentDayOfWeek}요일)</p>
+              <p><strong>일자:</strong> {currentDate} ({currentDayOfWeek})</p>
               <p><strong>구역:</strong> {district}구역</p>
               <p><strong>이름:</strong> {name}</p>
               <p><strong>성경읽기:</strong> {bibleReading || 0}장</p>
@@ -1195,6 +1199,44 @@ function App() {
                 setPasswordError('');
               }}>
                 취소
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showNoChangesModal && (
+        <div className="modal-overlay">
+          <div className="modal-content">
+            <h3>말씀생활 알림</h3>
+            <div style={{ marginBottom: '20px', padding: '20px 0' }}>
+              <p style={{ fontSize: '16px', textAlign: 'center' }}>변경내용이 없습니다.</p>
+            </div>
+            <div className="modal-buttons">
+              <button className="confirm-button" onClick={() => {
+                setShowNoChangesModal(false);
+                setShowRanking(true);
+              }} style={{ width: '100%' }}>
+                확인
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showSaveSuccessModal && (
+        <div className="modal-overlay" style={{ zIndex: 10000 }}>
+          <div className="modal-content">
+            <h3>말씀생활 알림</h3>
+            <div style={{ marginBottom: '20px', padding: '20px 0' }}>
+              <p style={{ fontSize: '16px', textAlign: 'center' }}>데이터가 성공적으로 저장되었습니다!</p>
+            </div>
+            <div className="modal-buttons">
+              <button className="confirm-button" onClick={() => {
+                setShowSaveSuccessModal(false);
+                setShowRanking(true);
+              }} style={{ width: '100%' }}>
+                확인
               </button>
             </div>
           </div>
