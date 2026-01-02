@@ -16,7 +16,6 @@ const firebaseConfig = {
 let app;
 try {
   app = initializeApp(firebaseConfig);
-  console.log('Firebase 초기화 성공:', app.options.projectId);
 } catch (error) {
   console.error('Firebase 초기화 실패:', error);
   throw error;
@@ -26,7 +25,6 @@ try {
 let db;
 try {
   db = getFirestore(app);
-  console.log('Firestore 초기화 성공');
 } catch (error) {
   console.error('Firestore 초기화 실패:', error);
   throw error;

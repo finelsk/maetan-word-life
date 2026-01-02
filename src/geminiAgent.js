@@ -7,18 +7,11 @@ import { db } from './firebase';
 const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY || '';
 
 // 디버깅: 환경 변수 확인 (개발 환경에서만)
-if (import.meta.env.DEV) {
-  console.log('Gemini API Key loaded:', GEMINI_API_KEY ? 'Yes (length: ' + GEMINI_API_KEY.length + ')' : 'No');
-}
-
 // Gemini AI 초기화
 let genAI = null;
 if (GEMINI_API_KEY) {
   try {
     genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
-    if (import.meta.env.DEV) {
-      console.log('Gemini AI initialized successfully');
-    }
   } catch (error) {
     console.error('Gemini AI initialization error:', error);
   }
@@ -231,20 +224,10 @@ export const queryGeminiAgent = async (userQuestion, userName = null, options = 
   // API 키 재확인 (런타임에서 다시 읽기)
   const apiKey = import.meta.env.VITE_GEMINI_API_KEY || '';
   
-  // 디버깅: 환경 변수 확인
-  console.log('=== Gemini Agent Debug ===');
-  console.log('import.meta.env keys:', Object.keys(import.meta.env));
-  console.log('VITE_GEMINI_API_KEY exists:', !!import.meta.env.VITE_GEMINI_API_KEY);
-  console.log('VITE_GEMINI_API_KEY value:', import.meta.env.VITE_GEMINI_API_KEY ? import.meta.env.VITE_GEMINI_API_KEY.substring(0, 10) + '...' : 'empty');
-  console.log('apiKey variable:', apiKey ? apiKey.substring(0, 10) + '...' : 'empty');
-  console.log('genAI initialized:', !!genAI);
-  console.log('========================');
-  
   // genAI가 초기화되지 않았지만 API 키가 있으면 재초기화
   if (!genAI && apiKey) {
     try {
       genAI = new GoogleGenerativeAI(apiKey);
-      console.log('Gemini AI re-initialized with API key');
     } catch (error) {
       console.error('Gemini API 초기화 실패:', error);
       throw new Error('Gemini API 초기화 실패: ' + error.message);
