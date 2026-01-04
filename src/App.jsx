@@ -41,11 +41,12 @@ function App() {
     if (!district || !name || !dateString) return;
     
     try {
+      const trimmedName = name.trim();
       const existingQuery = query(
         collection(db, 'wordLife'),
         where('date', '==', dateString),
         where('district', '==', parseInt(district)),
-        where('name', '==', name)
+        where('name', '==', trimmedName)
       );
       const existingSnapshot = await getDocs(existingQuery);
       
@@ -155,11 +156,13 @@ function App() {
     setShowConfirmModal(false);
     
     const dateString = selectedDate;
+    // 이름에서 공백 제거
+    const trimmedName = name.trim();
     
     const newData = {
       date: dateString,
       district: parseInt(district),
-      name: name,
+      name: trimmedName,
       bibleReading: bibleReading ? parseInt(bibleReading) : 0,
       sundayAttendance: sundayAttendance || '',
       wednesdayAttendance: wednesdayAttendance || '',
@@ -169,14 +172,14 @@ function App() {
     try {
       // localStorage에 저장
       localStorage.setItem('savedDistrict', district);
-      localStorage.setItem('savedName', name);
+      localStorage.setItem('savedName', trimmedName);
 
       // 동일한 날짜/구역/이름의 기존 문서 찾기
       const existingQuery = query(
         collection(db, 'wordLife'),
         where('date', '==', dateString),
         where('district', '==', parseInt(district)),
-        where('name', '==', name)
+        where('name', '==', trimmedName)
       );
       const existingSnapshot = await getDocs(existingQuery);
       
@@ -210,7 +213,7 @@ function App() {
       }
 
       // 문서 ID 생성 (날짜-구역-이름 조합)
-      const docId = `${dateString}_${district}_${name}`;
+      const docId = `${dateString}_${district}_${trimmedName}`;
       
       // 기존 문서가 있으면 업데이트, 없으면 새로 생성
       await setDoc(doc(db, 'wordLife', docId), newData);

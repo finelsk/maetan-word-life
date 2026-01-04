@@ -147,8 +147,34 @@ const formatDataForAnalysis = (data, userName = null) => {
   // 구역별 집계
   const districtStats = {};
   const personalStats = {};
+  // 날짜별 상세 데이터
+  const dateWiseData = {};
 
   data.forEach((item) => {
+    // 날짜별 데이터 그룹화
+    const dateKey = item.date || '날짜미상';
+    if (!dateWiseData[dateKey]) {
+      dateWiseData[dateKey] = {
+        date: dateKey,
+        records: [],
+        sundayAttendees: [],
+        wednesdayAttendees: []
+      };
+    }
+    dateWiseData[dateKey].records.push({
+      name: item.name,
+      district: item.district,
+      bibleReading: item.bibleReading || 0,
+      sundayAttendance: item.sundayAttendance || '',
+      wednesdayAttendance: item.wednesdayAttendance || ''
+    });
+    if (item.sundayAttendance) {
+      dateWiseData[dateKey].sundayAttendees.push(`${item.name} (${item.district}구역)`);
+    }
+    if (item.wednesdayAttendance) {
+      dateWiseData[dateKey].wednesdayAttendees.push(`${item.name} (${item.district}구역)`);
+    }
+
     // 구역별 통계
     const dist = item.district;
     if (!districtStats[dist]) {
@@ -206,6 +232,55 @@ const formatDataForAnalysis = (data, userName = null) => {
   const allParticipants = Array.from(new Set(data.map(item => `${item.name} (${item.district}구역)`))).sort();
   allParticipants.forEach((participant, index) => {
     text += `${index + 1}. ${participant}\n`;
+  });
+
+  // 날짜 형식 변환 함수
+  const formatDateForAI = (dateString) => {
+    try {
+      // YYYY-MM-DD 형식 파싱
+      const [year, month, day] = dateString.split('-');
+      if (year && month && day) {
+        const monthNum = parseInt(month, 10);
+        const dayNum = parseInt(day, 10);
+        return {
+          original: dateString, // "2026-01-04"
+          full: `${year}년 ${monthNum}월 ${dayNum}일`, // "2026년 1월 4일"
+          simple: `${monthNum}월 ${dayNum}일`, // "1월 4일"
+          numeric: `${monthNum}/${dayNum}` // "1/4"
+        };
+      }
+    } catch (e) {
+      // 파싱 실패 시 원본 반환
+    }
+    return {
+      original: dateString,
+      full: dateString,
+      simple: dateString,
+      numeric: dateString
+    };
+  };
+
+  text += `\n[날짜별 상세 데이터]\n`;
+  const sortedDates = Object.keys(dateWiseData).sort();
+  sortedDates.forEach((dateKey) => {
+    const dateInfo = dateWiseData[dateKey];
+    const dateFormats = formatDateForAI(dateKey);
+    text += `\n날짜: ${dateFormats.original} (${dateFormats.full}, ${dateFormats.simple}, ${dateFormats.numeric})\n`;
+    text += `- 총 기록: ${dateInfo.records.length}건\n`;
+    if (dateInfo.sundayAttendees.length > 0) {
+      text += `- 주일말씀 참석자: ${dateInfo.sundayAttendees.join(', ')}\n`;
+    }
+    if (dateInfo.wednesdayAttendees.length > 0) {
+      text += `- 수요말씀 참석자: ${dateInfo.wednesdayAttendees.join(', ')}\n`;
+    }
+    text += `- 해당 날짜 기록:\n`;
+    dateInfo.records.forEach((record) => {
+      text += `  * ${record.name} (${record.district}구역): `;
+      text += `성경읽기 ${record.bibleReading}장`;
+      if (record.sundayAttendance) text += `, 주일말씀 참석`;
+      if (record.wednesdayAttendance) text += `, 수요말씀 참석`;
+      text += `\n`;
+    });
   });
 
   text += `\n[개인별 통계 (상위 20명)]\n`;
