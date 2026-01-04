@@ -194,11 +194,18 @@ const formatDataForAnalysis = (data, userName = null) => {
   text += `[구역별 통계]\n`;
   Object.keys(districtStats).sort().forEach((dist) => {
     const stats = districtStats[dist];
+    const participantsList = Array.from(stats.participants).sort().join(', ');
     text += `구역 ${dist}: `;
-    text += `참여자 ${stats.participants.size}명, `;
+    text += `참여자 ${stats.participants.size}명 (${participantsList}), `;
     text += `성경읽기 총 ${stats.totalBibleReading}장, `;
     text += `주일말씀 ${stats.sundayCount}회, `;
     text += `수요말씀 ${stats.wednesdayCount}회\n`;
+  });
+
+  text += `\n[전체 참여자 목록]\n`;
+  const allParticipants = Array.from(new Set(data.map(item => `${item.name} (${item.district}구역)`))).sort();
+  allParticipants.forEach((participant, index) => {
+    text += `${index + 1}. ${participant}\n`;
   });
 
   text += `\n[개인별 통계 (상위 20명)]\n`;
