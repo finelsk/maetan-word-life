@@ -283,10 +283,9 @@ const formatDataForAnalysis = (data, userName = null) => {
     });
   });
 
-  text += `\n[개인별 통계 (상위 20명)]\n`;
+  text += `\n[개인별 통계 (전체)]\n`;
   const personalArray = Object.values(personalStats)
-    .sort((a, b) => b.totalBibleReading - a.totalBibleReading)
-    .slice(0, 20);
+    .sort((a, b) => b.totalBibleReading - a.totalBibleReading);
   
   personalArray.forEach((person, index) => {
     text += `${index + 1}. ${person.name} (${person.district}구역): `;
@@ -295,6 +294,8 @@ const formatDataForAnalysis = (data, userName = null) => {
     text += `주일말씀 ${person.sundayCount}회, `;
     text += `수요말씀 ${person.wednesdayCount}회\n`;
   });
+  
+  text += `\n총 ${personalArray.length}명의 참여자가 있습니다.\n`;
 
   return text;
 };
