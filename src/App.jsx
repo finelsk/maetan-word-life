@@ -174,14 +174,6 @@ function App() {
       localStorage.setItem('savedDistrict', district);
       localStorage.setItem('savedName', trimmedName);
 
-      // 같은 구역+이름의 모든 문서 찾기 (동명 2인 방지)
-      const sameDistrictNameQuery = query(
-        collection(db, 'wordLife'),
-        where('district', '==', parseInt(district)),
-        where('name', '==', trimmedName)
-      );
-      const sameDistrictNameSnapshot = await getDocs(sameDistrictNameQuery);
-      
       // 같은 날짜+구역+이름의 모든 문서 찾기 (중복 데이터 정리)
       const existingQuery = query(
         collection(db, 'wordLife'),
@@ -211,7 +203,7 @@ function App() {
           }
         });
         
-        // 최신 문서가 아닌 중복 문서들 삭제
+        // 최신 문서가 아닌 중복 문서들 삭제 (같은 날짜의 중복만 제거)
         const duplicateDocsToDelete = [];
         existingSnapshot.docs.forEach(docSnapshot => {
           if (docSnapshot.id !== existingDocId) {
@@ -253,52 +245,6 @@ function App() {
 
       // 문서 ID 생성 (날짜-구역-이름 조합)
       const docId = `${dateString}_${district}_${trimmedName}`;
-      
-      // 같은 구역+이름의 모든 문서 중 최신 데이터만 유지하고 나머지 삭제
-      // (같은 구역에 동명 2인이 존재하지 않으므로, 최신 데이터만 유지)
-      if (!sameDistrictNameSnapshot.empty) {
-        const currentTimestamp = newData.timestamp.getTime();
-        let latestTimestamp = currentTimestamp;
-        let latestDocId = docId;
-        
-        // 모든 문서 중 최신 timestamp 찾기
-        sameDistrictNameSnapshot.docs.forEach(docSnapshot => {
-          const docData = docSnapshot.data();
-          const docTimestamp = docData.timestamp?.toDate ? docData.timestamp.toDate().getTime() : new Date(docData.timestamp).getTime();
-          
-          if (docTimestamp > latestTimestamp) {
-            latestTimestamp = docTimestamp;
-            latestDocId = docSnapshot.id;
-          }
-        });
-        
-        // 최신 문서가 아닌 모든 문서 삭제
-        const docsToDelete = [];
-        sameDistrictNameSnapshot.docs.forEach(docSnapshot => {
-          if (docSnapshot.id !== latestDocId) {
-            docsToDelete.push(docSnapshot.id);
-          }
-        });
-        
-        // 오래된 문서들 삭제
-        for (const docIdToDelete of docsToDelete) {
-          try {
-            await deleteDoc(doc(db, 'wordLife', docIdToDelete));
-          } catch (deleteError) {
-            console.error('문서 삭제 오류:', deleteError);
-          }
-        }
-        
-        // 최신 문서가 현재 저장하려는 문서가 아닌 경우, 현재 문서로 업데이트
-        if (latestDocId !== docId) {
-          // 기존 최신 문서 삭제하고 새로 생성
-          try {
-            await deleteDoc(doc(db, 'wordLife', latestDocId));
-          } catch (deleteError) {
-            console.error('최신 문서 삭제 오류:', deleteError);
-          }
-        }
-      }
       
       // 기존 문서가 있으면 업데이트, 없으면 새로 생성
       await setDoc(doc(db, 'wordLife', docId), newData);
