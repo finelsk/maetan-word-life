@@ -284,8 +284,25 @@ const formatDataForAnalysis = (data, userName = null) => {
   });
 
   text += `\n[개인별 통계 (전체)]\n`;
+  // 성경읽기 장수, 주일말씀 참석 횟수, 수요말씀 참석 횟수를 모두 고려한 정렬
+  // 성경읽기가 0이어도 주일말씀/수요말씀 참석이 있으면 포함
   const personalArray = Object.values(personalStats)
-    .sort((a, b) => b.totalBibleReading - a.totalBibleReading);
+    .filter(person => {
+      // 성경읽기가 0이어도 주일말씀 또는 수요말씀 참석이 있으면 포함
+      return person.totalBibleReading > 0 || person.sundayCount > 0 || person.wednesdayCount > 0;
+    })
+    .sort((a, b) => {
+      // 1순위: 성경읽기 장수
+      if (b.totalBibleReading !== a.totalBibleReading) {
+        return b.totalBibleReading - a.totalBibleReading;
+      }
+      // 2순위: 주일말씀 참석 횟수
+      if (b.sundayCount !== a.sundayCount) {
+        return b.sundayCount - a.sundayCount;
+      }
+      // 3순위: 수요말씀 참석 횟수
+      return b.wednesdayCount - a.wednesdayCount;
+    });
   
   personalArray.forEach((person, index) => {
     text += `${index + 1}. ${person.name} (${person.district}구역): `;
@@ -408,4 +425,7 @@ ${dataText}
     throw error;
   }
 };
+
+
+
 
