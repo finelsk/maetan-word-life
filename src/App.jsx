@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { collection, addDoc, getDocs, query, where, orderBy, setDoc, doc } from 'firebase/firestore';
+import { collection, addDoc, getDocs, query, where, orderBy, setDoc, doc, deleteDoc } from 'firebase/firestore';
 import { db } from './firebase';
 import { queryGeminiAgent, fetchAllNames } from './geminiAgent';
 
@@ -174,7 +174,15 @@ function App() {
       localStorage.setItem('savedDistrict', district);
       localStorage.setItem('savedName', trimmedName);
 
-      // 동일한 날짜/구역/이름의 기존 문서 찾기
+      // 같은 구역+이름의 모든 문서 찾기 (동명 2인 방지)
+      const sameDistrictNameQuery = query(
+        collection(db, 'wordLife'),
+        where('district', '==', parseInt(district)),
+        where('name', '==', trimmedName)
+      );
+      const sameDistrictNameSnapshot = await getDocs(sameDistrictNameQuery);
+      
+      // 같은 날짜+구역+이름의 모든 문서 찾기 (중복 데이터 정리)
       const existingQuery = query(
         collection(db, 'wordLife'),
         where('date', '==', dateString),
@@ -186,18 +194,49 @@ function App() {
       let hasChanges = false;
       let existingDocId = null;
       let existingData = null;
+      let latestExistingDoc = null;
+      let latestExistingTimestamp = null;
 
+      // 같은 날짜+구역+이름의 모든 문서 중 최신 timestamp 찾기
       if (!existingSnapshot.empty) {
-        existingDocId = existingSnapshot.docs[0].id;
-        existingData = existingSnapshot.docs[0].data();
+        existingSnapshot.docs.forEach(docSnapshot => {
+          const docData = docSnapshot.data();
+          const docTimestamp = docData.timestamp?.toDate ? docData.timestamp.toDate() : new Date(docData.timestamp);
+          
+          if (!latestExistingTimestamp || docTimestamp > latestExistingTimestamp) {
+            latestExistingTimestamp = docTimestamp;
+            latestExistingDoc = docSnapshot;
+            existingDocId = docSnapshot.id;
+            existingData = docData;
+          }
+        });
         
-        // 변경 내용 확인
-        if (
-          existingData.bibleReading !== newData.bibleReading ||
-          existingData.sundayAttendance !== newData.sundayAttendance ||
-          existingData.wednesdayAttendance !== newData.wednesdayAttendance
-        ) {
-          hasChanges = true;
+        // 최신 문서가 아닌 중복 문서들 삭제
+        const duplicateDocsToDelete = [];
+        existingSnapshot.docs.forEach(docSnapshot => {
+          if (docSnapshot.id !== existingDocId) {
+            duplicateDocsToDelete.push(docSnapshot.id);
+          }
+        });
+        
+        // 중복 문서들 삭제
+        for (const docIdToDelete of duplicateDocsToDelete) {
+          try {
+            await deleteDoc(doc(db, 'wordLife', docIdToDelete));
+          } catch (deleteError) {
+            console.error('중복 문서 삭제 오류:', deleteError);
+          }
+        }
+        
+        // 변경 내용 확인 (최신 문서 기준)
+        if (existingData) {
+          if (
+            existingData.bibleReading !== newData.bibleReading ||
+            existingData.sundayAttendance !== newData.sundayAttendance ||
+            existingData.wednesdayAttendance !== newData.wednesdayAttendance
+          ) {
+            hasChanges = true;
+          }
         }
       } else {
         // 새 문서인 경우 변경 있음
@@ -214,6 +253,52 @@ function App() {
 
       // 문서 ID 생성 (날짜-구역-이름 조합)
       const docId = `${dateString}_${district}_${trimmedName}`;
+      
+      // 같은 구역+이름의 모든 문서 중 최신 데이터만 유지하고 나머지 삭제
+      // (같은 구역에 동명 2인이 존재하지 않으므로, 최신 데이터만 유지)
+      if (!sameDistrictNameSnapshot.empty) {
+        const currentTimestamp = newData.timestamp.getTime();
+        let latestTimestamp = currentTimestamp;
+        let latestDocId = docId;
+        
+        // 모든 문서 중 최신 timestamp 찾기
+        sameDistrictNameSnapshot.docs.forEach(docSnapshot => {
+          const docData = docSnapshot.data();
+          const docTimestamp = docData.timestamp?.toDate ? docData.timestamp.toDate().getTime() : new Date(docData.timestamp).getTime();
+          
+          if (docTimestamp > latestTimestamp) {
+            latestTimestamp = docTimestamp;
+            latestDocId = docSnapshot.id;
+          }
+        });
+        
+        // 최신 문서가 아닌 모든 문서 삭제
+        const docsToDelete = [];
+        sameDistrictNameSnapshot.docs.forEach(docSnapshot => {
+          if (docSnapshot.id !== latestDocId) {
+            docsToDelete.push(docSnapshot.id);
+          }
+        });
+        
+        // 오래된 문서들 삭제
+        for (const docIdToDelete of docsToDelete) {
+          try {
+            await deleteDoc(doc(db, 'wordLife', docIdToDelete));
+          } catch (deleteError) {
+            console.error('문서 삭제 오류:', deleteError);
+          }
+        }
+        
+        // 최신 문서가 현재 저장하려는 문서가 아닌 경우, 현재 문서로 업데이트
+        if (latestDocId !== docId) {
+          // 기존 최신 문서 삭제하고 새로 생성
+          try {
+            await deleteDoc(doc(db, 'wordLife', latestDocId));
+          } catch (deleteError) {
+            console.error('최신 문서 삭제 오류:', deleteError);
+          }
+        }
+      }
       
       // 기존 문서가 있으면 업데이트, 없으면 새로 생성
       await setDoc(doc(db, 'wordLife', docId), newData);
