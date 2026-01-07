@@ -25,16 +25,18 @@ if (GEMINI_API_KEY) {
 export const fetchWordLifeData = async (options = {}) => {
   try {
     const {
-      limitCount = 1000, // 기본 최대 1000개
+      limitCount = null, // 기본값 null로 변경하여 제한 없음
       orderByField = 'timestamp',
       orderDirection = 'desc'
     } = options;
 
     const wordLifeRef = collection(db, 'wordLife');
-    let q = query(wordLifeRef, orderBy(orderByField, orderDirection));
+    // orderBy를 제거하여 모든 데이터를 가져오고 클라이언트에서 정렬
+    let q = query(wordLifeRef); 
     
-    if (limitCount) {
-      q = query(wordLifeRef, orderBy(orderByField, orderDirection), limit(limitCount));
+    // limitCount가 null이 아니면 limit 적용 (현재는 null이므로 적용 안됨)
+    if (limitCount !== null) {
+      q = query(wordLifeRef, limit(limitCount));
     }
 
     const snapshot = await getDocs(q);
@@ -42,16 +44,27 @@ export const fetchWordLifeData = async (options = {}) => {
 
     snapshot.forEach((doc) => {
       const docData = doc.data();
+      // 이름 정규화 (공백 제거)
+      const normalizedName = (docData.name || '').trim();
+      const timestamp = docData.timestamp?.toDate ? docData.timestamp.toDate() : new Date(docData.timestamp || 0);
       data.push({
         id: doc.id,
         date: docData.date,
         district: docData.district,
-        name: docData.name,
+        name: normalizedName, // 정규화된 이름 사용
         bibleReading: docData.bibleReading || 0,
         sundayAttendance: docData.sundayAttendance || '',
         wednesdayAttendance: docData.wednesdayAttendance || '',
-        timestamp: docData.timestamp?.toDate ? docData.timestamp.toDate().toISOString() : docData.timestamp
+        timestamp: timestamp.toISOString(),
+        timestampValue: timestamp.getTime() // 정렬을 위한 숫자 값
       });
+    });
+
+    // 클라이언트에서 timestamp 기준으로 정렬 (최신순)
+    data.sort((a, b) => {
+      const timestampA = a.timestampValue || 0;
+      const timestampB = b.timestampValue || 0;
+      return timestampB - timestampA;
     });
 
     return data;
@@ -89,20 +102,21 @@ export const fetchAllNames = async () => {
 export const fetchDataByName = async (name, options = {}) => {
   try {
     const {
-      limitCount = 1000
+      limitCount = null // 기본값 null로 변경하여 제한 없음
     } = options;
 
     const wordLifeRef = collection(db, 'wordLife');
-    // where만 사용하여 인덱스 오류 방지
+    // 이름으로만 필터링하고, orderBy와 limit은 클라이언트에서 처리
     let q = query(
       wordLifeRef,
-      where('name', '==', name)
+      where('name', '==', name.trim()) // 이름 정규화
     );
     
-    if (limitCount) {
+    // limitCount가 null이 아니면 limit 적용 (현재는 null이므로 적용 안됨)
+    if (limitCount !== null) {
       q = query(
         wordLifeRef,
-        where('name', '==', name),
+        where('name', '==', name.trim()),
         limit(limitCount)
       );
     }
@@ -113,11 +127,13 @@ export const fetchDataByName = async (name, options = {}) => {
     snapshot.forEach((doc) => {
       const docData = doc.data();
       const timestamp = docData.timestamp?.toDate ? docData.timestamp.toDate() : new Date(docData.timestamp || 0);
+      // 이름 정규화 (공백 제거)
+      const normalizedName = (docData.name || '').trim();
       data.push({
         id: doc.id,
         date: docData.date,
         district: docData.district,
-        name: docData.name,
+        name: normalizedName, // 정규화된 이름 사용
         bibleReading: docData.bibleReading || 0,
         sundayAttendance: docData.sundayAttendance || '',
         wednesdayAttendance: docData.wednesdayAttendance || '',
@@ -144,15 +160,70 @@ const formatDataForAnalysis = (data, userName = null) => {
     return '데이터가 없습니다.';
   }
 
+  // 1. 데이터 정규화 및 중복 제거/병합
+  const dataMap = new Map();
+  data.forEach((item) => {
+    const name = (item.name || '').trim();
+    if (!name) return;
+
+    // 날짜 정규화 (YYYY-MM-DD 형식으로 통일)
+    let date = item.date || '날짜미상';
+    if (date !== '날짜미상' && date.includes('-')) {
+      const parts = date.split('-');
+      if (parts.length === 3) {
+        date = `${parts[0]}-${parts[1].padStart(2, '0')}-${parts[2].padStart(2, '0')}`;
+      }
+    }
+
+    // 구역 정규화 (문자열로 통일)
+    const dist = String(item.district || '');
+    const key = `${date}_${dist}_${name}`;
+    
+    const timestampValue = item.timestampValue || (item.timestamp ? new Date(item.timestamp).getTime() : 0);
+    
+    if (!dataMap.has(key)) {
+      dataMap.set(key, { ...item, name, date, district: dist, timestampValue });
+    } else {
+      const existing = dataMap.get(key);
+      const existingTimestampValue = existing.timestampValue || 0;
+      
+      // 더 최신 데이터로 병합 (최신순을 따르되, 정보가 있는 필드를 우선함)
+      if (timestampValue >= existingTimestampValue) {
+        dataMap.set(key, {
+          ...item,
+          name,
+          date,
+          district: dist,
+          timestampValue,
+          // 새 데이터가 비어있으면 기존 데이터의 정보를 유지 (누락 방지)
+          bibleReading: item.bibleReading || existing.bibleReading || 0,
+          sundayAttendance: item.sundayAttendance || existing.sundayAttendance || '',
+          wednesdayAttendance: item.wednesdayAttendance || existing.wednesdayAttendance || ''
+        });
+      } else {
+        // 기존 데이터가 더 최신인 경우에도 새 데이터의 정보를 채워넣음
+        dataMap.set(key, {
+          ...existing,
+          bibleReading: existing.bibleReading || item.bibleReading || 0,
+          sundayAttendance: existing.sundayAttendance || item.sundayAttendance || '',
+          wednesdayAttendance: existing.wednesdayAttendance || item.wednesdayAttendance || ''
+        });
+      }
+    }
+  });
+
+  // 중복 제거 및 병합된 데이터 배열
+  const finalData = Array.from(dataMap.values());
+
   // 구역별 집계
   const districtStats = {};
   const personalStats = {};
   // 날짜별 상세 데이터
   const dateWiseData = {};
 
-  data.forEach((item) => {
+  finalData.forEach((item) => {
     // 날짜별 데이터 그룹화
-    const dateKey = item.date || '날짜미상';
+    const dateKey = item.date;
     if (!dateWiseData[dateKey]) {
       dateWiseData[dateKey] = {
         date: dateKey,
@@ -176,17 +247,26 @@ const formatDataForAnalysis = (data, userName = null) => {
     });
     
     // 주일말씀 참석자 구분 (현장/온라인)
+    const attendeeLabel = `${item.name} (${item.district}구역)`;
     if (item.sundayAttendance === '현장참석') {
-      dateWiseData[dateKey].sundayAttendees.onSite.push(`${item.name} (${item.district}구역)`);
+      if (!dateWiseData[dateKey].sundayAttendees.onSite.includes(attendeeLabel)) {
+        dateWiseData[dateKey].sundayAttendees.onSite.push(attendeeLabel);
+      }
     } else if (item.sundayAttendance === '온라인') {
-      dateWiseData[dateKey].sundayAttendees.online.push(`${item.name} (${item.district}구역)`);
+      if (!dateWiseData[dateKey].sundayAttendees.online.includes(attendeeLabel)) {
+        dateWiseData[dateKey].sundayAttendees.online.push(attendeeLabel);
+      }
     }
     
     // 수요말씀 참석자 구분 (현장/온라인)
     if (item.wednesdayAttendance === '현장참석') {
-      dateWiseData[dateKey].wednesdayAttendees.onSite.push(`${item.name} (${item.district}구역)`);
+      if (!dateWiseData[dateKey].wednesdayAttendees.onSite.includes(attendeeLabel)) {
+        dateWiseData[dateKey].wednesdayAttendees.onSite.push(attendeeLabel);
+      }
     } else if (item.wednesdayAttendance === '온라인') {
-      dateWiseData[dateKey].wednesdayAttendees.online.push(`${item.name} (${item.district}구역)`);
+      if (!dateWiseData[dateKey].wednesdayAttendees.online.includes(attendeeLabel)) {
+        dateWiseData[dateKey].wednesdayAttendees.online.push(attendeeLabel);
+      }
     }
 
     // 구역별 통계
@@ -232,9 +312,9 @@ const formatDataForAnalysis = (data, userName = null) => {
     districtStats[dist].participants.add(item.name);
 
     // 개인별 통계
-    const key = `${item.district}_${item.name}`;
-    if (!personalStats[key]) {
-      personalStats[key] = {
+    const personalKey = `${item.district}_${item.name}`;
+    if (!personalStats[personalKey]) {
+      personalStats[personalKey] = {
         district: item.district,
         name: item.name,
         totalBibleReading: 0,
@@ -251,25 +331,23 @@ const formatDataForAnalysis = (data, userName = null) => {
         }
       };
     }
-    personalStats[key].totalBibleReading += item.bibleReading;
-    if (item.bibleReading > 0) personalStats[key].daysWithReading++;
+    personalStats[personalKey].totalBibleReading += item.bibleReading;
+    if (item.bibleReading > 0) personalStats[personalKey].daysWithReading++;
     
-    // 주일말씀 참석 통계
     if (item.sundayAttendance === '현장참석') {
-      personalStats[key].sundayCount.onSite++;
-      personalStats[key].sundayCount.total++;
+      personalStats[personalKey].sundayCount.onSite++;
+      personalStats[personalKey].sundayCount.total++;
     } else if (item.sundayAttendance === '온라인') {
-      personalStats[key].sundayCount.online++;
-      personalStats[key].sundayCount.total++;
+      personalStats[personalKey].sundayCount.online++;
+      personalStats[personalKey].sundayCount.total++;
     }
     
-    // 수요말씀 참석 통계
     if (item.wednesdayAttendance === '현장참석') {
-      personalStats[key].wednesdayCount.onSite++;
-      personalStats[key].wednesdayCount.total++;
+      personalStats[personalKey].wednesdayCount.onSite++;
+      personalStats[personalKey].wednesdayCount.total++;
     } else if (item.wednesdayAttendance === '온라인') {
-      personalStats[key].wednesdayCount.online++;
-      personalStats[key].wednesdayCount.total++;
+      personalStats[personalKey].wednesdayCount.online++;
+      personalStats[personalKey].wednesdayCount.total++;
     }
   });
 
@@ -278,7 +356,7 @@ const formatDataForAnalysis = (data, userName = null) => {
   if (userName) {
     text += `조회자: ${userName}\n\n`;
   }
-  text += `총 기록 수: ${data.length}개\n\n`;
+  text += `총 유니크 기록 수: ${finalData.length}개\n\n`;
 
   text += `[구역별 통계]\n`;
   Object.keys(districtStats).sort().forEach((dist) => {
@@ -292,7 +370,7 @@ const formatDataForAnalysis = (data, userName = null) => {
   });
 
   text += `\n[전체 참여자 목록]\n`;
-  const allParticipants = Array.from(new Set(data.map(item => `${item.name} (${item.district}구역)`))).sort();
+  const allParticipants = Array.from(new Set(finalData.map(item => `${item.name} (${item.district}구역)`))).sort();
   allParticipants.forEach((participant, index) => {
     text += `${index + 1}. ${participant}\n`;
   });
@@ -300,103 +378,84 @@ const formatDataForAnalysis = (data, userName = null) => {
   // 날짜 형식 변환 함수
   const formatDateForAI = (dateString) => {
     try {
-      // YYYY-MM-DD 형식 파싱
       const [year, month, day] = dateString.split('-');
       if (year && month && day) {
         const monthNum = parseInt(month, 10);
         const dayNum = parseInt(day, 10);
         return {
-          original: dateString, // "2026-01-04"
-          full: `${year}년 ${monthNum}월 ${dayNum}일`, // "2026년 1월 4일"
-          simple: `${monthNum}월 ${dayNum}일`, // "1월 4일"
-          numeric: `${monthNum}/${dayNum}` // "1/4"
+          original: dateString,
+          full: `${year}년 ${monthNum}월 ${dayNum}일`,
+          simple: `${monthNum}월 ${dayNum}일`,
+          numeric: `${monthNum}/${dayNum}`
         };
       }
-    } catch (e) {
-      // 파싱 실패 시 원본 반환
-    }
-    return {
-      original: dateString,
-      full: dateString,
-      simple: dateString,
-      numeric: dateString
-    };
+    } catch (e) {}
+    return { original: dateString, full: dateString, simple: dateString, numeric: dateString };
   };
 
   text += `\n[날짜별 상세 데이터]\n`;
-  const sortedDates = Object.keys(dateWiseData).sort();
+  const sortedDates = Object.keys(dateWiseData).sort().reverse(); // 최신 날짜부터
   sortedDates.forEach((dateKey) => {
     const dateInfo = dateWiseData[dateKey];
     const dateFormats = formatDateForAI(dateKey);
-    text += `\n날짜: ${dateFormats.original} (${dateFormats.full}, ${dateFormats.simple}, ${dateFormats.numeric})\n`;
-    text += `- 총 기록: ${dateInfo.records.length}건\n`;
+    text += `\n날짜: ${dateFormats.original} (${dateFormats.full})\n`;
     
-    // 주일말씀 참석자 (현장/온라인 구분)
-    if (dateInfo.sundayAttendees.onSite.length > 0 || dateInfo.sundayAttendees.online.length > 0) {
-      text += `- 주일말씀 참석자:\n`;
-      if (dateInfo.sundayAttendees.onSite.length > 0) {
-        text += `  * 현장참석: ${dateInfo.sundayAttendees.onSite.join(', ')}\n`;
+    // 구역별로 데이터를 재그룹화하여 AI에게 제공
+    const districtGroups = {};
+    dateInfo.records.forEach(record => {
+      const d = record.district;
+      if (!districtGroups[d]) {
+        districtGroups[d] = {
+          sunday: { onSite: [], online: [] },
+          wednesday: { onSite: [], online: [] },
+          reading: []
+        };
       }
-      if (dateInfo.sundayAttendees.online.length > 0) {
-        text += `  * 온라인: ${dateInfo.sundayAttendees.online.join(', ')}\n`;
+      
+      if (record.sundayAttendance === '현장참석') districtGroups[d].sunday.onSite.push(record.name);
+      else if (record.sundayAttendance === '온라인') districtGroups[d].sunday.online.push(record.name);
+      
+      if (record.wednesdayAttendance === '현장참석') districtGroups[d].wednesday.onSite.push(record.name);
+      else if (record.wednesdayAttendance === '온라인') districtGroups[d].wednesday.online.push(record.name);
+      
+      if (record.bibleReading > 0) districtGroups[d].reading.push(`${record.name}(${record.bibleReading}장)`);
+    });
+
+    // 구역별로 상세히 출력
+    Object.keys(districtGroups).sort().forEach(d => {
+      const group = districtGroups[d];
+      text += `[${d}구역]\n`;
+      
+      // 수요말씀 집계
+      const wOn = group.wednesday.onSite.sort();
+      const wOff = group.wednesday.online.sort();
+      const wTotal = wOn.length + wOff.length;
+      if (wTotal > 0) {
+        text += `- 수요말씀: 총 ${wTotal}명 (현장 ${wOn.length}명: ${wOn.join(', ')} / 온라인 ${wOff.length}명: ${wOff.join(', ')})\n`;
       }
-    }
-    
-    // 수요말씀 참석자 (현장/온라인 구분)
-    if (dateInfo.wednesdayAttendees.onSite.length > 0 || dateInfo.wednesdayAttendees.online.length > 0) {
-      text += `- 수요말씀 참석자:\n`;
-      if (dateInfo.wednesdayAttendees.onSite.length > 0) {
-        text += `  * 현장참석: ${dateInfo.wednesdayAttendees.onSite.join(', ')}\n`;
+      
+      // 주일말씀 집계
+      const sOn = group.sunday.onSite.sort();
+      const sOff = group.sunday.online.sort();
+      const sTotal = sOn.length + sOff.length;
+      if (sTotal > 0) {
+        text += `- 주일말씀: 총 ${sTotal}명 (현장 ${sOn.length}명: ${sOn.join(', ')} / 온라인 ${sOff.length}명: ${sOff.sort().join(', ')})\n`;
       }
-      if (dateInfo.wednesdayAttendees.online.length > 0) {
-        text += `  * 온라인: ${dateInfo.wednesdayAttendees.online.join(', ')}\n`;
+
+      if (group.reading.length > 0) {
+        text += `- 성경읽기: ${group.reading.join(', ')}\n`;
       }
-    }
-    
-    text += `- 해당 날짜 기록:\n`;
-    dateInfo.records.forEach((record) => {
-      text += `  * ${record.name} (${record.district}구역): `;
-      text += `성경읽기 ${record.bibleReading}장`;
-      if (record.sundayAttendance) {
-        text += `, 주일말씀 ${record.sundayAttendance === '현장참석' ? '현장참석' : '온라인'}`;
-      }
-      if (record.wednesdayAttendance) {
-        text += `, 수요말씀 ${record.wednesdayAttendance === '현장참석' ? '현장참석' : '온라인'}`;
-      }
-      text += `\n`;
     });
   });
 
-  text += `\n[개인별 통계 (전체)]\n`;
-  // 성경읽기 장수, 주일말씀 참석 횟수, 수요말씀 참석 횟수를 모두 고려한 정렬
-  // 성경읽기가 0이어도 주일말씀/수요말씀 참석이 있으면 포함
+  text += `\n[개인별 누적 통계]\n`;
   const personalArray = Object.values(personalStats)
-    .filter(person => {
-      // 성경읽기가 0이어도 주일말씀 또는 수요말씀 참석이 있으면 포함
-      return person.totalBibleReading > 0 || person.sundayCount.total > 0 || person.wednesdayCount.total > 0;
-    })
-    .sort((a, b) => {
-      // 1순위: 성경읽기 장수
-      if (b.totalBibleReading !== a.totalBibleReading) {
-        return b.totalBibleReading - a.totalBibleReading;
-      }
-      // 2순위: 주일말씀 참석 횟수
-      if (b.sundayCount.total !== a.sundayCount.total) {
-        return b.sundayCount.total - a.sundayCount.total;
-      }
-      // 3순위: 수요말씀 참석 횟수
-      return b.wednesdayCount.total - a.wednesdayCount.total;
-    });
+    .filter(p => p.totalBibleReading > 0 || p.sundayCount.total > 0 || p.wednesdayCount.total > 0)
+    .sort((a, b) => b.totalBibleReading - a.totalBibleReading);
   
-  personalArray.forEach((person, index) => {
-    text += `${index + 1}. ${person.name} (${person.district}구역): `;
-    text += `성경읽기 ${person.totalBibleReading}장, `;
-    text += `읽은 날 ${person.daysWithReading}일, `;
-    text += `주일말씀 총 ${person.sundayCount.total}회 (현장 ${person.sundayCount.onSite}회, 온라인 ${person.sundayCount.online}회), `;
-    text += `수요말씀 총 ${person.wednesdayCount.total}회 (현장 ${person.wednesdayCount.onSite}회, 온라인 ${person.wednesdayCount.online}회)\n`;
+  personalArray.forEach((p, index) => {
+    text += `${index + 1}. ${p.name} (${p.district}구역): 성경읽기 ${p.totalBibleReading}장, 주일 ${p.sundayCount.total}회, 수요 ${p.wednesdayCount.total}회\n`;
   });
-  
-  text += `\n총 ${personalArray.length}명의 참여자가 있습니다.\n`;
 
   return text;
 };

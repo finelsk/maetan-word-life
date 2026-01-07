@@ -1,0 +1,49 @@
+{
+  "hash": "c726830f",
+  "configHash": "fcc9fc71",
+  "lockfileHash": "36f0b8eb",
+  "browserHash": "7965dfd2",
+  "optimized": {
+    "react": {
+      "src": "../../node_modules/react/index.js",
+      "file": "react.js",
+      "fileHash": "1e17e6a9",
+      "needsInterop": true
+    },
+    "react-dom/client": {
+      "src": "../../node_modules/react-dom/client.js",
+      "file": "react-dom_client.js",
+      "fileHash": "efc0afb1",
+      "needsInterop": true
+    },
+    "firebase/firestore": {
+      "src": "../../node_modules/firebase/firestore/dist/esm/index.esm.js",
+      "file": "firebase_firestore.js",
+      "fileHash": "a1ab10a6",
+      "needsInterop": false
+    },
+    "firebase/app": {
+      "src": "../../node_modules/firebase/app/dist/esm/index.esm.js",
+      "file": "firebase_app.js",
+      "fileHash": "8249c581",
+      "needsInterop": false
+    },
+    "@google/generative-ai": {
+      "src": "../../node_modules/@google/generative-ai/dist/index.mjs",
+      "file": "@google_generative-ai.js",
+      "fileHash": "f98c15d7",
+      "needsInterop": false
+    }
+  },
+  "chunks": {
+    "chunk-7CYR7F5Q": {
+      "file": "chunk-7CYR7F5Q.js"
+    },
+    "chunk-VG7MVA4Q": {
+      "file": "chunk-VG7MVA4Q.js"
+    },
+    "chunk-BUSYA2B4": {
+      "file": "chunk-BUSYA2B4.js"
+    }
+  }
+}

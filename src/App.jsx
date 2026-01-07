@@ -693,8 +693,8 @@ function App() {
     setAgentAnswer('');
 
     try {
-      // 전체 데이터 조회 (userName을 null로 전달)
-      const result = await queryGeminiAgent(agentQuestion, null, { limitCount: 1000 });
+      // 전체 데이터 조회 (userName을 null로 전달, limitCount 제거하여 모든 데이터 조회)
+      const result = await queryGeminiAgent(agentQuestion, null, {});
       setAgentAnswer(result.answer);
     } catch (error) {
       console.error('Gemini Agent 오류:', error);
