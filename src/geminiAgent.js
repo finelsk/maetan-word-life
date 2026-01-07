@@ -157,8 +157,14 @@ const formatDataForAnalysis = (data, userName = null) => {
       dateWiseData[dateKey] = {
         date: dateKey,
         records: [],
-        sundayAttendees: [],
-        wednesdayAttendees: []
+        sundayAttendees: {
+          onSite: [],
+          online: []
+        },
+        wednesdayAttendees: {
+          onSite: [],
+          online: []
+        }
       };
     }
     dateWiseData[dateKey].records.push({
@@ -168,11 +174,19 @@ const formatDataForAnalysis = (data, userName = null) => {
       sundayAttendance: item.sundayAttendance || '',
       wednesdayAttendance: item.wednesdayAttendance || ''
     });
-    if (item.sundayAttendance) {
-      dateWiseData[dateKey].sundayAttendees.push(`${item.name} (${item.district}구역)`);
+    
+    // 주일말씀 참석자 구분 (현장/온라인)
+    if (item.sundayAttendance === '현장참석') {
+      dateWiseData[dateKey].sundayAttendees.onSite.push(`${item.name} (${item.district}구역)`);
+    } else if (item.sundayAttendance === '온라인') {
+      dateWiseData[dateKey].sundayAttendees.online.push(`${item.name} (${item.district}구역)`);
     }
-    if (item.wednesdayAttendance) {
-      dateWiseData[dateKey].wednesdayAttendees.push(`${item.name} (${item.district}구역)`);
+    
+    // 수요말씀 참석자 구분 (현장/온라인)
+    if (item.wednesdayAttendance === '현장참석') {
+      dateWiseData[dateKey].wednesdayAttendees.onSite.push(`${item.name} (${item.district}구역)`);
+    } else if (item.wednesdayAttendance === '온라인') {
+      dateWiseData[dateKey].wednesdayAttendees.online.push(`${item.name} (${item.district}구역)`);
     }
 
     // 구역별 통계
@@ -181,15 +195,40 @@ const formatDataForAnalysis = (data, userName = null) => {
       districtStats[dist] = {
         totalRecords: 0,
         totalBibleReading: 0,
-        sundayCount: 0,
-        wednesdayCount: 0,
+        sundayCount: {
+          onSite: 0,
+          online: 0,
+          total: 0
+        },
+        wednesdayCount: {
+          onSite: 0,
+          online: 0,
+          total: 0
+        },
         participants: new Set()
       };
     }
     districtStats[dist].totalRecords++;
     districtStats[dist].totalBibleReading += item.bibleReading;
-    if (item.sundayAttendance) districtStats[dist].sundayCount++;
-    if (item.wednesdayAttendance) districtStats[dist].wednesdayCount++;
+    
+    // 주일말씀 참석 통계
+    if (item.sundayAttendance === '현장참석') {
+      districtStats[dist].sundayCount.onSite++;
+      districtStats[dist].sundayCount.total++;
+    } else if (item.sundayAttendance === '온라인') {
+      districtStats[dist].sundayCount.online++;
+      districtStats[dist].sundayCount.total++;
+    }
+    
+    // 수요말씀 참석 통계
+    if (item.wednesdayAttendance === '현장참석') {
+      districtStats[dist].wednesdayCount.onSite++;
+      districtStats[dist].wednesdayCount.total++;
+    } else if (item.wednesdayAttendance === '온라인') {
+      districtStats[dist].wednesdayCount.online++;
+      districtStats[dist].wednesdayCount.total++;
+    }
+    
     districtStats[dist].participants.add(item.name);
 
     // 개인별 통계
@@ -200,14 +239,38 @@ const formatDataForAnalysis = (data, userName = null) => {
         name: item.name,
         totalBibleReading: 0,
         daysWithReading: 0,
-        sundayCount: 0,
-        wednesdayCount: 0
+        sundayCount: {
+          onSite: 0,
+          online: 0,
+          total: 0
+        },
+        wednesdayCount: {
+          onSite: 0,
+          online: 0,
+          total: 0
+        }
       };
     }
     personalStats[key].totalBibleReading += item.bibleReading;
     if (item.bibleReading > 0) personalStats[key].daysWithReading++;
-    if (item.sundayAttendance) personalStats[key].sundayCount++;
-    if (item.wednesdayAttendance) personalStats[key].wednesdayCount++;
+    
+    // 주일말씀 참석 통계
+    if (item.sundayAttendance === '현장참석') {
+      personalStats[key].sundayCount.onSite++;
+      personalStats[key].sundayCount.total++;
+    } else if (item.sundayAttendance === '온라인') {
+      personalStats[key].sundayCount.online++;
+      personalStats[key].sundayCount.total++;
+    }
+    
+    // 수요말씀 참석 통계
+    if (item.wednesdayAttendance === '현장참석') {
+      personalStats[key].wednesdayCount.onSite++;
+      personalStats[key].wednesdayCount.total++;
+    } else if (item.wednesdayAttendance === '온라인') {
+      personalStats[key].wednesdayCount.online++;
+      personalStats[key].wednesdayCount.total++;
+    }
   });
 
   // 텍스트 형태로 변환
@@ -224,8 +287,8 @@ const formatDataForAnalysis = (data, userName = null) => {
     text += `구역 ${dist}: `;
     text += `참여자 ${stats.participants.size}명 (${participantsList}), `;
     text += `성경읽기 총 ${stats.totalBibleReading}장, `;
-    text += `주일말씀 ${stats.sundayCount}회, `;
-    text += `수요말씀 ${stats.wednesdayCount}회\n`;
+    text += `주일말씀 총 ${stats.sundayCount.total}회 (현장 ${stats.sundayCount.onSite}회, 온라인 ${stats.sundayCount.online}회), `;
+    text += `수요말씀 총 ${stats.wednesdayCount.total}회 (현장 ${stats.wednesdayCount.onSite}회, 온라인 ${stats.wednesdayCount.online}회)\n`;
   });
 
   text += `\n[전체 참여자 목록]\n`;
@@ -267,18 +330,39 @@ const formatDataForAnalysis = (data, userName = null) => {
     const dateFormats = formatDateForAI(dateKey);
     text += `\n날짜: ${dateFormats.original} (${dateFormats.full}, ${dateFormats.simple}, ${dateFormats.numeric})\n`;
     text += `- 총 기록: ${dateInfo.records.length}건\n`;
-    if (dateInfo.sundayAttendees.length > 0) {
-      text += `- 주일말씀 참석자: ${dateInfo.sundayAttendees.join(', ')}\n`;
+    
+    // 주일말씀 참석자 (현장/온라인 구분)
+    if (dateInfo.sundayAttendees.onSite.length > 0 || dateInfo.sundayAttendees.online.length > 0) {
+      text += `- 주일말씀 참석자:\n`;
+      if (dateInfo.sundayAttendees.onSite.length > 0) {
+        text += `  * 현장참석: ${dateInfo.sundayAttendees.onSite.join(', ')}\n`;
+      }
+      if (dateInfo.sundayAttendees.online.length > 0) {
+        text += `  * 온라인: ${dateInfo.sundayAttendees.online.join(', ')}\n`;
+      }
     }
-    if (dateInfo.wednesdayAttendees.length > 0) {
-      text += `- 수요말씀 참석자: ${dateInfo.wednesdayAttendees.join(', ')}\n`;
+    
+    // 수요말씀 참석자 (현장/온라인 구분)
+    if (dateInfo.wednesdayAttendees.onSite.length > 0 || dateInfo.wednesdayAttendees.online.length > 0) {
+      text += `- 수요말씀 참석자:\n`;
+      if (dateInfo.wednesdayAttendees.onSite.length > 0) {
+        text += `  * 현장참석: ${dateInfo.wednesdayAttendees.onSite.join(', ')}\n`;
+      }
+      if (dateInfo.wednesdayAttendees.online.length > 0) {
+        text += `  * 온라인: ${dateInfo.wednesdayAttendees.online.join(', ')}\n`;
+      }
     }
+    
     text += `- 해당 날짜 기록:\n`;
     dateInfo.records.forEach((record) => {
       text += `  * ${record.name} (${record.district}구역): `;
       text += `성경읽기 ${record.bibleReading}장`;
-      if (record.sundayAttendance) text += `, 주일말씀 참석`;
-      if (record.wednesdayAttendance) text += `, 수요말씀 참석`;
+      if (record.sundayAttendance) {
+        text += `, 주일말씀 ${record.sundayAttendance === '현장참석' ? '현장참석' : '온라인'}`;
+      }
+      if (record.wednesdayAttendance) {
+        text += `, 수요말씀 ${record.wednesdayAttendance === '현장참석' ? '현장참석' : '온라인'}`;
+      }
       text += `\n`;
     });
   });
@@ -289,7 +373,7 @@ const formatDataForAnalysis = (data, userName = null) => {
   const personalArray = Object.values(personalStats)
     .filter(person => {
       // 성경읽기가 0이어도 주일말씀 또는 수요말씀 참석이 있으면 포함
-      return person.totalBibleReading > 0 || person.sundayCount > 0 || person.wednesdayCount > 0;
+      return person.totalBibleReading > 0 || person.sundayCount.total > 0 || person.wednesdayCount.total > 0;
     })
     .sort((a, b) => {
       // 1순위: 성경읽기 장수
@@ -297,19 +381,19 @@ const formatDataForAnalysis = (data, userName = null) => {
         return b.totalBibleReading - a.totalBibleReading;
       }
       // 2순위: 주일말씀 참석 횟수
-      if (b.sundayCount !== a.sundayCount) {
-        return b.sundayCount - a.sundayCount;
+      if (b.sundayCount.total !== a.sundayCount.total) {
+        return b.sundayCount.total - a.sundayCount.total;
       }
       // 3순위: 수요말씀 참석 횟수
-      return b.wednesdayCount - a.wednesdayCount;
+      return b.wednesdayCount.total - a.wednesdayCount.total;
     });
   
   personalArray.forEach((person, index) => {
     text += `${index + 1}. ${person.name} (${person.district}구역): `;
     text += `성경읽기 ${person.totalBibleReading}장, `;
     text += `읽은 날 ${person.daysWithReading}일, `;
-    text += `주일말씀 ${person.sundayCount}회, `;
-    text += `수요말씀 ${person.wednesdayCount}회\n`;
+    text += `주일말씀 총 ${person.sundayCount.total}회 (현장 ${person.sundayCount.onSite}회, 온라인 ${person.sundayCount.online}회), `;
+    text += `수요말씀 총 ${person.wednesdayCount.total}회 (현장 ${person.wednesdayCount.onSite}회, 온라인 ${person.wednesdayCount.online}회)\n`;
   });
   
   text += `\n총 ${personalArray.length}명의 참여자가 있습니다.\n`;
@@ -385,6 +469,7 @@ ${dataText}
 
 위 데이터를 바탕으로 사용자의 질문에 친절하고 정확하게 답변해주세요. 
 한국어로 답변하고, 구체적인 숫자와 통계를 포함하여 답변해주세요.
+수요말씀 참석 정보는 현장참석과 온라인 참석을 구분하여 답변해주세요.
 데이터에 없는 정보는 추측하지 말고 "데이터에 해당 정보가 없습니다"라고 답변해주세요.`;
 
     // 5. Gemini에 질문 전송
