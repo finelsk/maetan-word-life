@@ -375,6 +375,44 @@ const formatDataForAnalysis = (data, userName = null) => {
     text += `${index + 1}. ${participant}\n`;
   });
 
+  // 전체 성경읽기 참여인원 구역별 집계 (날짜별이 아닌 전체 데이터 기준, 구역별 누적 장수 포함)
+  text += `\n[전체 성경읽기 참여인원 구역별 현황]\n`;
+  const bibleReadingParticipants = new Set();
+  const districtBibleReaders = {};
+  
+  finalData.forEach(item => {
+    if (item.bibleReading > 0) {
+      const name = (item.name || '').trim();
+      const dist = String(item.district || '');
+      
+      if (!districtBibleReaders[dist]) {
+        districtBibleReaders[dist] = new Set();
+      }
+      
+      bibleReadingParticipants.add(`${name}_${dist}`);
+      districtBibleReaders[dist].add(name);
+    }
+  });
+  
+  // 전체 누적 장수 계산
+  const totalBibleReadingPages = finalData.reduce((sum, item) => sum + (item.bibleReading || 0), 0);
+  
+  text += `전체: ${bibleReadingParticipants.size}명\n`;
+  Object.keys(districtBibleReaders).sort().forEach(dist => {
+    // 구역별 누적 장수는 districtStats에서 가져옴
+    const districtTotalPages = districtStats[dist] ? districtStats[dist].totalBibleReading : 0;
+    text += `${dist}구역: ${districtBibleReaders[dist].size}명 (${districtTotalPages}장)\n`;
+  });
+
+  // 전체 수요말씀 누적 참석현황 구역별 집계 (전체 데이터 기준)
+  text += `\n[전체 수요말씀 누적 참석현황 구역별 현황]\n`;
+  Object.keys(districtStats).sort().forEach(dist => {
+    const stats = districtStats[dist];
+    if (stats.wednesdayCount.total > 0) {
+      text += `${dist}구역: ${stats.wednesdayCount.total}명 (현장 ${stats.wednesdayCount.onSite}명/온라인 ${stats.wednesdayCount.online}명)\n`;
+    }
+  });
+
   // 날짜 형식 변환 함수
   const formatDateForAI = (dateString) => {
     try {
@@ -421,10 +459,65 @@ const formatDataForAnalysis = (data, userName = null) => {
       if (record.bibleReading > 0) districtGroups[d].reading.push(`${record.name}(${record.bibleReading}장)`);
     });
 
+    // 날짜별 요약 정보 (AI가 쉽게 파싱할 수 있도록)
+    let totalWednesdayOnSite = 0;
+    let totalWednesdayOnline = 0;
+    let totalBibleReaders = new Set();
+    const districtSummary = {};
+    
+    Object.keys(districtGroups).sort().forEach(d => {
+      const group = districtGroups[d];
+      const wOn = group.wednesday.onSite.length;
+      const wOff = group.wednesday.online.length;
+      const wTotal = wOn + wOff;
+      
+      totalWednesdayOnSite += wOn;
+      totalWednesdayOnline += wOff;
+      
+      districtSummary[d] = {
+        wednesday: { total: wTotal, onSite: wOn, online: wOff },
+        bibleReaders: new Set()
+      };
+      
+      // 성경읽기 참여자 수집
+      group.reading.forEach(r => {
+        const nameMatch = r.match(/^([^(]+)/);
+        if (nameMatch) {
+          const name = nameMatch[1].trim();
+          totalBibleReaders.add(name);
+          districtSummary[d].bibleReaders.add(name);
+        }
+      });
+    });
+    
+    const totalWednesday = totalWednesdayOnSite + totalWednesdayOnline;
+    
+    // 날짜별 요약 섹션 추가 (구역별 현장/온라인 참석자 이름 목록 포함)
+    if (totalWednesday > 0) {
+      text += `\n[${dateFormats.full} 수요말씀 참석현황 요약]\n`;
+      text += `전체: ${totalWednesday}명 (현장 ${totalWednesdayOnSite}명/온라인 ${totalWednesdayOnline}명)\n`;
+      Object.keys(districtGroups).sort().forEach(d => {
+        const group = districtGroups[d];
+        const wOn = group.wednesday.onSite.sort();
+        const wOff = group.wednesday.online.sort();
+        const wTotal = wOn.length + wOff.length;
+        
+        if (wTotal > 0) {
+          text += `${d}구역: ${wTotal}명 (현장 ${wOn.length}명/온라인 ${wOff.length}명)\n`;
+          if (wOn.length > 0) {
+            text += `  - 현장: ${wOn.join(', ')}\n`;
+          }
+          if (wOff.length > 0) {
+            text += `  - 온라인: ${wOff.join(', ')}\n`;
+          }
+        }
+      });
+    }
+    
     // 구역별로 상세히 출력
     Object.keys(districtGroups).sort().forEach(d => {
       const group = districtGroups[d];
-      text += `[${d}구역]\n`;
+      text += `\n[${d}구역 상세]\n`;
       
       // 수요말씀 집계
       const wOn = group.wednesday.onSite.sort();
@@ -529,7 +622,40 @@ ${dataText}
 위 데이터를 바탕으로 사용자의 질문에 친절하고 정확하게 답변해주세요. 
 한국어로 답변하고, 구체적인 숫자와 통계를 포함하여 답변해주세요.
 수요말씀 참석 정보는 현장참석과 온라인 참석을 구분하여 답변해주세요.
-데이터에 없는 정보는 추측하지 말고 "데이터에 해당 정보가 없습니다"라고 답변해주세요.`;
+데이터에 없는 정보는 추측하지 말고 "데이터에 해당 정보가 없습니다"라고 답변해주세요.
+
+**중요: 답변 형식 지침**
+
+1) 날짜별 수요말씀 참석현황을 구역별로 정리할 때는 반드시 아래 형식을 사용하세요:
+
+수요말씀 구역별 참석현황
+> 전체 : 00명 (현장 00명/온라인 00명)
+> 41구역 : 00명 (현장 00명/온라인 00명)
+  - 현장 : 이름1, 이름2, 이름3,....
+  - 온라인 : 이름1, 이름2, 이름3....
+> 42구역 : 00명 (현장 00명/온라인 00명)
+  - 현장 : 이름1, 이름2, 이름3,....
+  - 온라인 : 이름1, 이름2, 이름3....
+> 43구역 : 00명 (현장 00명/온라인 00명)
+  - 현장 : 이름1, 이름2, 이름3,....
+  - 온라인 : 이름1, 이름2, 이름3....
+
+2) 성경읽기 참여인원을 구역별로 정리할 때는 날짜별이 아니라 전체 데이터를 기준으로 구역별로 집계하여 반드시 아래 형식을 사용하세요 (장수는 구역별 누적장수):
+
+성경읽기 현황
+> 전체 : 00명
+> 41구역 : 00명 (00000장)
+> 42구역 : 00명 (00000장)
+> 43구역 : 00명 (00000장)
+
+3) 수요말씀 누적 참석현황을 구역별로 정리할 때는 조회한 날짜까지 누적된 숫자를 구역별로 반드시 아래 형식을 사용하세요:
+
+수요말씀 구역별 누적 참석현황
+> 41구역 : 00명 (현장 00명/온라인 00명)
+> 42구역 : 00명 (현장 00명/온라인 00명)
+> 43구역 : 00명 (현장 00명/온라인 00명)
+
+위 형식을 정확히 따르되, 실제 데이터의 숫자와 이름을 사용하여 답변해주세요.`;
 
     // 5. Gemini에 질문 전송
     let result;
