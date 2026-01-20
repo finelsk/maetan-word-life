@@ -1,7 +1,491 @@
 import React, { useState, useEffect } from 'react';
-import { collection, addDoc, getDocs, query, where, orderBy, setDoc, doc, deleteDoc } from 'firebase/firestore';
+import { collection, addDoc, getDocs, query, where, orderBy, setDoc, doc, deleteDoc, getDoc } from 'firebase/firestore';
 import { db } from './firebase';
 import { queryGeminiAgent, fetchAllNames } from './geminiAgent';
+
+// 성구암송 섹션 컴포넌트
+const BibleMemoSection = ({ selectedDate }) => {
+  // 기본값은 '이번주', 기존에 저장된 값이 있으면 복원
+  const [activeTab, setActiveTab] = useState(() => {
+    if (typeof window === 'undefined') return 'thisWeek';
+    const saved = window.localStorage.getItem('bibleMemoActiveTab');
+    if (saved === 'lastWeek' || saved === 'thisWeek' || saved === 'nextWeek') {
+      return saved;
+    }
+    return 'thisWeek';
+  });
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [memos, setMemos] = useState({
+    lastWeek: null,
+    thisWeek: null,
+    nextWeek: null
+  });
+  const [mp3Urls, setMp3Urls] = useState({
+    lastWeek: '',
+    thisWeek: '',
+    nextWeek: ''
+  });
+  const [currentIndices, setCurrentIndices] = useState({
+    lastWeek: 134,
+    thisWeek: 135,
+    nextWeek: 136
+  });
+
+  // 오디오 플레이어 관련 상태
+  const [repeatMode, setRepeatMode] = useState('none'); // 'none' | 'single' | 'all'
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [currentPlayingTab, setCurrentPlayingTab] = useState('thisWeek');
+  const audioRef = React.useRef(null);
+
+  // 탭 변경 시 마지막 선택 상태를 localStorage 에 저장
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    window.localStorage.setItem('bibleMemoActiveTab', activeTab);
+  }, [activeTab]);
+
+  // 현재 탭 변경 시, 전체 반복이 아닌 경우 재생 탭도 동기화
+  useEffect(() => {
+    if (repeatMode !== 'all') {
+      setCurrentPlayingTab(activeTab);
+    }
+  }, [activeTab, repeatMode]);
+
+  // 인덱스로부터 MP3 파일 경로 생성
+  // mp3Url 가져오기 (Firebase에서 로드된 memos에서)
+  const getAudioSrc = (tabKey) => {
+    return mp3Urls[tabKey] || '';
+  };
+
+  // 현재 재생 중인 탭에 맞게 오디오 src 갱신
+  useEffect(() => {
+    const audio = audioRef.current;
+    if (!audio) return;
+    const src = getAudioSrc(currentPlayingTab);
+    if (!src) return; // mp3Url이 없으면 업데이트 안 함
+    if (audio.src === src) return; // 이미 같은 src면 업데이트 안 함
+    audio.src = src;
+    if (isPlaying) {
+      audio
+        .play()
+        .then(() => {})
+        .catch(() => {
+          setIsPlaying(false);
+        });
+    }
+  }, [mp3Urls, currentPlayingTab, isPlaying]);
+
+  // 재생/일시정지 토글
+  const handlePlayPause = () => {
+    const audio = audioRef.current;
+    if (!audio) return;
+    if (isPlaying) {
+      audio.pause();
+      setIsPlaying(false);
+    } else {
+      audio
+        .play()
+        .then(() => {
+          setIsPlaying(true);
+        })
+        .catch(() => {
+          setIsPlaying(false);
+        });
+    }
+  };
+
+  // 정지 버튼
+  const handleStop = () => {
+    const audio = audioRef.current;
+    if (!audio) return;
+    audio.pause();
+    audio.currentTime = 0;
+    setIsPlaying(false);
+  };
+
+  // 반복 모드 토글: none -> all(A) -> single(1) -> none
+  const handleToggleRepeat = () => {
+    setRepeatMode((prev) => {
+      if (prev === 'none') return 'all';
+      if (prev === 'all') return 'single';
+      return 'none';
+    });
+  };
+
+  // 전체 반복(all)에서 다음 탭 계산
+  const getNextTabForAllRepeat = (tab) => {
+    if (tab === 'lastWeek') return 'thisWeek';
+    if (tab === 'thisWeek') return 'nextWeek';
+    return 'lastWeek';
+  };
+
+  // 오디오 종료 시 동작
+  const handleEnded = () => {
+    const audio = audioRef.current;
+    if (!audio) {
+      setIsPlaying(false);
+      return;
+    }
+
+    if (repeatMode === 'single') {
+      // 현재 탭만 반복
+      audio.currentTime = 0;
+      audio
+        .play()
+        .then(() => {
+          setIsPlaying(true);
+        })
+        .catch(() => {
+          setIsPlaying(false);
+        });
+      return;
+    }
+
+    if (repeatMode === 'all') {
+      const nextTab = getNextTabForAllRepeat(currentPlayingTab);
+      setCurrentPlayingTab(nextTab);
+      setActiveTab(nextTab); // 탭/본문도 같이 이동
+      // src는 currentPlayingTab 변경으로 useEffect에서 갱신
+      setTimeout(() => {
+        if (!audioRef.current) return;
+        audioRef.current
+          .play()
+          .then(() => {
+            setIsPlaying(true);
+          })
+          .catch(() => {
+            setIsPlaying(false);
+          });
+      }, 0);
+      return;
+    }
+
+    // 반복 없음
+    setIsPlaying(false);
+  };
+
+  // 인덱스 루프 함수 (1~244 범위)
+  const getLoopIndex = (index) => {
+    if (index <= 0) {
+      // 음수나 0인 경우: 244에서 역순으로 계산
+      let result = index;
+      while (result <= 0) {
+        result += 244;
+      }
+      return result;
+    }
+    if (index > 244) {
+      // 244 초과인 경우: 1부터 다시 시작
+      let result = index;
+      while (result > 244) {
+        result -= 244;
+      }
+      return result;
+    }
+    return index;
+  };
+
+  // 주일 기준으로 이번주 인덱스 계산
+  const calculateThisWeekIndex = (dateString) => {
+    if (!dateString) {
+      // 날짜가 없으면 오늘 날짜 기준
+      const today = new Date();
+      dateString = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+    }
+
+    const date = new Date(dateString);
+    const dayOfWeek = date.getDay(); // 0 = 일요일
+    
+    // 주일(일요일)이 아니면 가장 가까운 주일로 조정
+    let targetSunday;
+    if (dayOfWeek === 0) {
+      targetSunday = new Date(date);
+    } else {
+      // 가장 가까운 과거 주일로 이동
+      const daysToSubtract = dayOfWeek;
+      targetSunday = new Date(date);
+      targetSunday.setDate(date.getDate() - daysToSubtract);
+    }
+
+    // 기준 주일: 2026-01-19 (일요일) = 135번
+    // 2026-01-26 (일요일) = 136번이 되어야 하므로, 기준은 135번이 맞음
+    const baseSunday = new Date('2026-01-19');
+    baseSunday.setHours(0, 0, 0, 0); // 시간 정규화
+    const baseIndex = 135;
+
+    // 선택한 주일과 기준 주일의 차이 계산 (주 단위)
+    targetSunday.setHours(0, 0, 0, 0); // 시간 정규화
+    const diffTime = targetSunday - baseSunday;
+    const diffWeeks = Math.round(diffTime / (1000 * 60 * 60 * 24 * 7));
+
+    // 이번주 인덱스 계산
+    const thisWeekIndex = baseIndex + diffWeeks;
+    
+    return getLoopIndex(thisWeekIndex);
+  };
+
+  // 날짜 변경 시 인덱스 업데이트
+  useEffect(() => {
+    const thisWeekIndex = calculateThisWeekIndex(selectedDate);
+    const lastWeekIndex = getLoopIndex(thisWeekIndex - 1);
+    const nextWeekIndex = getLoopIndex(thisWeekIndex + 1);
+    
+    setCurrentIndices({
+      lastWeek: lastWeekIndex,
+      thisWeek: thisWeekIndex,
+      nextWeek: nextWeekIndex
+    });
+  }, [selectedDate]);
+
+  const loadMemos = async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const fetchOne = async (index) => {
+        const id = String(index);
+        try {
+          const snap = await getDoc(doc(db, 'bibleMemo', id));
+          if (!snap.exists()) return null;
+          const data = snap.data();
+          return {
+            number: data.number || index,
+            reference: data.reference || '',
+            text: data.text || '',
+            mp3Url: data.mp3Url || ''
+          };
+        } catch (err) {
+          console.error(`${index}번 데이터 로딩 오류:`, err);
+          return null;
+        }
+      };
+
+      const { lastWeek: lastIdx, thisWeek: thisIdx, nextWeek: nextIdx } = currentIndices;
+
+      const [lastWeek, thisWeek, nextWeek] = await Promise.all([
+        fetchOne(lastIdx),
+        fetchOne(thisIdx),
+        fetchOne(nextIdx)
+      ]);
+
+      setMemos({ lastWeek, thisWeek, nextWeek });
+      
+      // mp3Url 별도로 저장
+      setMp3Urls({
+        lastWeek: lastWeek?.mp3Url || '',
+        thisWeek: thisWeek?.mp3Url || '',
+        nextWeek: nextWeek?.mp3Url || ''
+      });
+    } catch (e) {
+      console.error('성구암송 로딩 오류:', e);
+      setError('성구암송 데이터를 불러오는 중 오류가 발생했습니다.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // 인덱스나 날짜 변경 시 데이터 로딩
+  useEffect(() => {
+    loadMemos();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentIndices]);
+
+  const renderContent = () => {
+    const key =
+      activeTab === 'lastWeek' ? 'lastWeek' : activeTab === 'nextWeek' ? 'nextWeek' : 'thisWeek';
+    const memo = memos[key];
+
+    if (loading && !memo) {
+      return (
+        <div className="bible-memo-empty">
+          성구암송 내용을 불러오는 중입니다...
+        </div>
+      );
+    }
+
+    if (error) {
+      return <div className="bible-memo-empty">{error}</div>;
+    }
+
+    if (!memo || !memo.text) {
+      if (key === 'nextWeek') {
+        return (
+          <div className="bible-memo-empty">
+            다음주 암송 내용이 아직 업데이트되지 않았습니다.
+          </div>
+        );
+      }
+      return (
+        <div className="bible-memo-empty">
+          아직 암송 내용이 등록되지 않았습니다.
+        </div>
+      );
+    }
+
+    const contentClass =
+      key === 'lastWeek'
+        ? 'bible-memo-content bible-memo-content-lastWeek'
+        : key === 'nextWeek'
+        ? 'bible-memo-content bible-memo-content-nextWeek'
+        : 'bible-memo-content bible-memo-content-thisWeek';
+
+    // 여러 절인 경우 절별로 구분 처리
+    let text = memo.text || '';
+    const reference = memo.reference || '';
+    let verseCount = 1;
+    
+    if (reference && (reference.includes('~') || reference.includes('-'))) {
+      const verseRangeMatch = reference.match(/(\d+)[~-](\d+)/);
+      if (verseRangeMatch) {
+        const firstVerseNum = parseInt(verseRangeMatch[1]);
+        const secondVerseNum = parseInt(verseRangeMatch[2]);
+        verseCount = secondVerseNum - firstVerseNum + 1;
+        
+        if (!text.includes('\n') && verseCount > 1) {
+          const verseEndPatterns = [
+            /살겠고\s+/, /없느니라\s+/, /있느니라\s+/, /하시니라\s+/, /하시더라\s+/,
+            /하리라\s+/, /하리니\s+/, /하시리라\s+/, /하시리니\s+/, /느니라\s+/,
+            /니라\s+/, /더라\s+/, /리라\s+/, /리니\s+/, /느냐\s+/, /냐\s+/,
+            /살겠고$/, /없느니라$/, /있느니라$/, /하시니라$/, /하시더라$/,
+            /하리라$/, /하리니$/, /느니라$/, /니라$/, /더라$/, /리라$/, /리니$/, /느냐$/, /냐$/
+          ];
+          
+          let splitPoint = -1;
+          for (const pattern of verseEndPatterns) {
+            const match = text.match(pattern);
+            if (match && match.index !== undefined) {
+              splitPoint = match.index + match[0].length;
+              break;
+            }
+          }
+          
+          if (splitPoint === -1) {
+            const sentenceEndMatch = text.match(/([^.!?]*[.!?])\s*/);
+            if (sentenceEndMatch && sentenceEndMatch.index !== undefined) {
+              splitPoint = sentenceEndMatch.index + sentenceEndMatch[0].length;
+            } else {
+              splitPoint = Math.ceil(text.length / 2);
+            }
+          }
+          
+          if (splitPoint > 0 && splitPoint < text.length) {
+            const firstVerse = text.substring(0, splitPoint).trim();
+            const secondVerse = text.substring(splitPoint).trim();
+            if (firstVerse && secondVerse) {
+              text = firstVerse + '\n' + secondVerse;
+            }
+          }
+        }
+      }
+    }
+
+    return (
+      <div className={contentClass}>
+        <div className="bible-memo-text">
+          {text.split('\n').map((line, index) => {
+            // 2절 이상인 경우, 앞에 붙은 숫자를 구절보다 조금 작게(위첨자) 표시
+            if (verseCount > 1) {
+              const match = line.match(/^(\d+)([절\.]*)\s*(.*)$/);
+              if (match) {
+                const numberPart = `${match[1]}${match[2] || ''}`;
+                const verseText = match[3] || '';
+                return (
+                  <p key={index}>
+                    <span className="bible-memo-verse-number">{numberPart}</span>{' '}
+                    <span className="bible-memo-verse-text">{verseText}</span>
+                  </p>
+                );
+              }
+            }
+            return <p key={index}>{line}</p>;
+          })}
+        </div>
+      </div>
+    );
+  };
+
+  const TabButton = ({ tabKey }) => {
+    const labels = {
+      lastWeek: '지난주',
+      thisWeek: '이번주',
+      nextWeek: '다음주'
+    };
+    
+    const isActive = activeTab === tabKey;
+    const memo = memos[tabKey];
+    const index = currentIndices[tabKey];
+    const displayRef = memo?.reference || '';
+    
+    return (
+      <button
+        type="button"
+        className={`bible-memo-tab ${isActive ? 'active' : ''}`}
+        onClick={() => setActiveTab(tabKey)}
+      >
+        <span className="bible-memo-tab-label">{labels[tabKey]}</span>
+        {displayRef && (
+          <span className="bible-memo-tab-ref">[{displayRef}]</span>
+        )}
+      </button>
+    );
+  };
+
+  return (
+    <section className="bible-memo-section">
+      <div className="bible-memo-header">
+        <h2 className="bible-memo-title">성구암송</h2>
+        {/* MP3 플레이어 영역 */}
+        <div className="bible-memo-player">
+          <button
+            type="button"
+            className={`bible-memo-player-button play-pause ${isPlaying ? 'playing' : ''}`}
+            onClick={handlePlayPause}
+            title={isPlaying ? '일시정지' : '재생'}
+          >
+            {isPlaying ? (
+              <svg width="18" height="18" viewBox="0 0 18 18" fill="currentColor">
+                <rect x="6" y="4" width="2" height="10" rx="1"/>
+                <rect x="10" y="4" width="2" height="10" rx="1"/>
+              </svg>
+            ) : (
+              <svg width="18" height="18" viewBox="0 0 18 18" fill="currentColor">
+                <path d="M6 4l7 5-7 5V4z"/>
+              </svg>
+            )}
+          </button>
+          <button
+            type="button"
+            className="bible-memo-player-button stop"
+            onClick={handleStop}
+            title="정지"
+          >
+            <svg width="18" height="18" viewBox="0 0 18 18" fill="currentColor">
+              <rect x="5" y="5" width="8" height="8" rx="1.5"/>
+            </svg>
+          </button>
+            <button
+              type="button"
+              className={`bible-memo-player-button repeat ${repeatMode}`}
+              onClick={handleToggleRepeat}
+              title={repeatMode === 'all' ? '전체 반복(A)' : repeatMode === 'single' ? '한 구절 반복(1)' : '반복 끄기'}
+            >
+              <span className="bible-memo-repeat-text">
+                {repeatMode === 'all' ? 'A' : repeatMode === 'single' ? '1' : 'A'}
+              </span>
+            </button>
+        </div>
+        <audio ref={audioRef} onEnded={handleEnded} className="bible-memo-audio" />
+      </div>
+
+      <div className="bible-memo-tabs">
+        <TabButton tabKey="lastWeek" />
+        <TabButton tabKey="thisWeek" />
+        <TabButton tabKey="nextWeek" />
+      </div>
+
+      {renderContent()}
+    </section>
+  );
+};
 
 function App() {
   const [selectedDate, setSelectedDate] = useState('');
@@ -722,7 +1206,6 @@ function App() {
     setPasswordError('');
   };
 
-
   // Agent 화면
   if (showAgentScreen) {
     return (
@@ -1026,7 +1509,6 @@ function App() {
   return (
     <div className="container">
       <h1 style={{ cursor: 'pointer' }} onClick={handleTitleClick}>매탄교구 말씀생활</h1>
-      
       <div className="form-section">
         <table className="info-table">
           <tbody>
@@ -1277,6 +1759,9 @@ function App() {
           </div>
         </div>
       )}
+      
+      {/* 저장 버튼 아래에 성구암송 섹션 표시 */}
+      <BibleMemoSection selectedDate={selectedDate} />
     </div>
   );
 }
