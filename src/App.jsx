@@ -37,6 +37,11 @@ const BibleMemoSection = ({ selectedDate }) => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentPlayingTab, setCurrentPlayingTab] = useState('thisWeek');
   const audioRef = React.useRef(null);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [isLandscape, setIsLandscape] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    return window.innerWidth > window.innerHeight;
+  });
 
   // 탭 변경 시 마지막 선택 상태를 localStorage 에 저장
   useEffect(() => {
@@ -50,6 +55,37 @@ const BibleMemoSection = ({ selectedDate }) => {
       setCurrentPlayingTab(activeTab);
     }
   }, [activeTab, repeatMode]);
+
+  // 전체 화면 모드일 때 배경 스크롤 잠금
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+    if (!isFullscreen) return;
+
+    const originalOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+
+    return () => {
+      document.body.style.overflow = originalOverflow;
+    };
+  }, [isFullscreen]);
+
+  // 화면 방향(가로/세로) 추적
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const updateOrientation = () => {
+      setIsLandscape(window.innerWidth > window.innerHeight);
+    };
+
+    updateOrientation();
+    window.addEventListener('resize', updateOrientation);
+    window.addEventListener('orientationchange', updateOrientation);
+
+    return () => {
+      window.removeEventListener('resize', updateOrientation);
+      window.removeEventListener('orientationchange', updateOrientation);
+    };
+  }, []);
 
   // 인덱스로부터 MP3 파일 경로 생성
   // mp3Url 가져오기 (Firebase에서 로드된 memos에서)
@@ -430,60 +466,120 @@ const BibleMemoSection = ({ selectedDate }) => {
   };
 
   return (
-    <section className="bible-memo-section">
-      <div className="bible-memo-header">
-        <h2 className="bible-memo-title">성구암송</h2>
-        {/* MP3 플레이어 영역 */}
-        <div className="bible-memo-player">
-          <button
-            type="button"
-            className={`bible-memo-player-button play-pause ${isPlaying ? 'playing' : ''}`}
-            onClick={handlePlayPause}
-            title={isPlaying ? '일시정지' : '재생'}
-          >
-            {isPlaying ? (
-              <svg width="18" height="18" viewBox="0 0 18 18" fill="currentColor">
-                <rect x="6" y="4" width="2" height="10" rx="1"/>
-                <rect x="10" y="4" width="2" height="10" rx="1"/>
+    <>
+      <section className="bible-memo-section">
+        <div className="bible-memo-header">
+          <div className="bible-memo-title-row">
+            <button
+              type="button"
+              className="bible-memo-title-zoom-button"
+              onClick={() => setIsFullscreen((prev) => !prev)}
+              title="성구암송 크게 보기"
+            >
+              <svg
+                width="18"
+                height="18"
+                viewBox="0 0 18 18"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <circle cx="8" cy="8" r="5" />
+                <path d="m13 13 3 3" />
               </svg>
-            ) : (
+            </button>
+            <h2 className="bible-memo-title">성구암송</h2>
+          </div>
+          {/* MP3 플레이어 영역 (기존 UI 유지) */}
+          <div className="bible-memo-player">
+            <button
+              type="button"
+              className={`bible-memo-player-button play-pause ${isPlaying ? 'playing' : ''}`}
+              onClick={handlePlayPause}
+              title={isPlaying ? '일시정지' : '재생'}
+            >
+              {isPlaying ? (
+                <svg width="18" height="18" viewBox="0 0 18 18" fill="currentColor">
+                  <rect x="6" y="4" width="2" height="10" rx="1" />
+                  <rect x="10" y="4" width="2" height="10" rx="1" />
+                </svg>
+              ) : (
+                <svg width="18" height="18" viewBox="0 0 18 18" fill="currentColor">
+                  <path d="M6 4l7 5-7 5V4z" />
+                </svg>
+              )}
+            </button>
+            <button
+              type="button"
+              className="bible-memo-player-button stop"
+              onClick={handleStop}
+              title="정지"
+            >
               <svg width="18" height="18" viewBox="0 0 18 18" fill="currentColor">
-                <path d="M6 4l7 5-7 5V4z"/>
+                <rect x="5" y="5" width="8" height="8" rx="1.5" />
               </svg>
-            )}
-          </button>
-          <button
-            type="button"
-            className="bible-memo-player-button stop"
-            onClick={handleStop}
-            title="정지"
-          >
-            <svg width="18" height="18" viewBox="0 0 18 18" fill="currentColor">
-              <rect x="5" y="5" width="8" height="8" rx="1.5"/>
-            </svg>
-          </button>
+            </button>
             <button
               type="button"
               className={`bible-memo-player-button repeat ${repeatMode}`}
               onClick={handleToggleRepeat}
-              title={repeatMode === 'all' ? '전체 반복(A)' : repeatMode === 'single' ? '한 구절 반복(1)' : '반복 끄기'}
+              title={
+                repeatMode === 'all'
+                  ? '전체 반복(A)'
+                  : repeatMode === 'single'
+                  ? '한 구절 반복(1)'
+                  : '반복 끄기'
+              }
             >
               <span className="bible-memo-repeat-text">
                 {repeatMode === 'all' ? 'A' : repeatMode === 'single' ? '1' : 'A'}
               </span>
             </button>
+          </div>
+          <audio ref={audioRef} onEnded={handleEnded} className="bible-memo-audio" />
         </div>
-        <audio ref={audioRef} onEnded={handleEnded} className="bible-memo-audio" />
-      </div>
 
-      <div className="bible-memo-tabs">
-        <TabButton tabKey="lastWeek" />
-        <TabButton tabKey="thisWeek" />
-        <TabButton tabKey="nextWeek" />
-      </div>
+        <div className="bible-memo-tabs">
+          <TabButton tabKey="lastWeek" />
+          <TabButton tabKey="thisWeek" />
+          <TabButton tabKey="nextWeek" />
+        </div>
 
-      {renderContent()}
-    </section>
+        {renderContent()}
+      </section>
+      {isFullscreen && (
+        <div
+          className="bible-memo-fullscreen-overlay"
+          onClick={() => setIsFullscreen(false)}
+        >
+          <div
+            className="bible-memo-fullscreen-container"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              type="button"
+              className="bible-memo-fullscreen-close"
+              onClick={() => setIsFullscreen(false)}
+              aria-label="성구암송 전체 화면 닫기"
+            >
+              ✕
+            </button>
+            <section className="bible-memo-section bible-memo-section-fullscreen">
+              <div className="bible-memo-tabs">
+                <div className="bible-memo-tabs-container">
+                  <TabButton tabKey="lastWeek" />
+                  <TabButton tabKey="thisWeek" />
+                  <TabButton tabKey="nextWeek" />
+                </div>
+              </div>
+              {renderContent()}
+            </section>
+          </div>
+        </div>
+      )}
+    </>
   );
 };
 
@@ -509,6 +605,15 @@ function App() {
   const [passwordError, setPasswordError] = useState('');
   const [showNoChangesModal, setShowNoChangesModal] = useState(false);
   const [showSaveSuccessModal, setShowSaveSuccessModal] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+
+  // 캐시 관리 (메모리 캐시)
+  const cacheRef = React.useRef({
+    rankings: null,
+    rankingsTimestamp: null,
+    dateData: new Map(), // 날짜별 데이터 캐시
+    CACHE_DURATION: 60000 // 1분 (60초)
+  });
 
   // 날짜 포맷팅 함수
   const formatDate = (dateString) => {
@@ -520,12 +625,30 @@ function App() {
     return { formatted: `${year}년 ${month}월 ${day}일`, dayOfWeek };
   };
 
-  // 날짜 변경 시 데이터 불러오기
+  // 날짜 변경 시 데이터 불러오기 (캐시 적용)
   const loadDateData = async (dateString) => {
     if (!district || !name || !dateString) return;
     
+    const trimmedName = name.trim();
+    const cacheKey = `${dateString}_${district}_${trimmedName}`;
+    
+    // 캐시 확인
+    const cached = cacheRef.current.dateData.get(cacheKey);
+    if (cached && (Date.now() - cached.timestamp) < cacheRef.current.CACHE_DURATION) {
+      // 캐시된 데이터 사용
+      if (cached.data) {
+        setBibleReading(cached.data.bibleReading ? String(cached.data.bibleReading) : '');
+        setSundayAttendance(cached.data.sundayAttendance || '');
+        setWednesdayAttendance(cached.data.wednesdayAttendance || '');
+      } else {
+        setBibleReading('');
+        setSundayAttendance('');
+        setWednesdayAttendance('');
+      }
+      return;
+    }
+    
     try {
-      const trimmedName = name.trim();
       const existingQuery = query(
         collection(db, 'wordLife'),
         where('date', '==', dateString),
@@ -534,9 +657,9 @@ function App() {
       );
       const existingSnapshot = await getDocs(existingQuery);
       
+      let latestData = null;
       if (!existingSnapshot.empty) {
         // 최신 데이터 찾기
-        let latestData = null;
         let latestTimestamp = null;
         
         existingSnapshot.docs.forEach(doc => {
@@ -560,6 +683,12 @@ function App() {
         setSundayAttendance('');
         setWednesdayAttendance('');
       }
+      
+      // 캐시에 저장
+      cacheRef.current.dateData.set(cacheKey, {
+        data: latestData,
+        timestamp: Date.now()
+      });
     } catch (error) {
       console.error('데이터 불러오기 오류:', error);
     }
@@ -628,6 +757,7 @@ function App() {
 
   // 저장 버튼 클릭
   const handleSave = () => {
+    if (isSaving) return;
     if (!district || !name) {
       alert('구역과 이름을 입력해주세요.');
       return;
@@ -638,6 +768,7 @@ function App() {
   // 확인 모달에서 확인 클릭
   const handleConfirmSave = async () => {
     setShowConfirmModal(false);
+    setIsSaving(true);
     
     const dateString = selectedDate;
     // 이름에서 공백 제거
@@ -733,6 +864,12 @@ function App() {
       // 기존 문서가 있으면 업데이트, 없으면 새로 생성
       await setDoc(doc(db, 'wordLife', docId), newData);
       
+      // 저장 후 관련 캐시 무효화
+      const cacheKey = `${dateString}_${district}_${trimmedName}`;
+      cacheRef.current.dateData.delete(cacheKey);
+      cacheRef.current.rankings = null;
+      cacheRef.current.rankingsTimestamp = null;
+      
       // 순위 계산 및 표시
       try {
         await calculateRankings();
@@ -766,11 +903,24 @@ function App() {
       }
       
       alert(errorMessage);
+    } finally {
+      setIsSaving(false);
     }
   };
 
-  // 순위 계산
+  // 순위 계산 (캐시 적용)
   const calculateRankings = async () => {
+    // 캐시 확인 (1분 이내 캐시가 있으면 재사용)
+    const now = Date.now();
+    if (
+      cacheRef.current.rankings &&
+      cacheRef.current.rankingsTimestamp &&
+      (now - cacheRef.current.rankingsTimestamp) < cacheRef.current.CACHE_DURATION
+    ) {
+      setRankings(cacheRef.current.rankings);
+      return;
+    }
+
     try {
       const snapshot = await getDocs(collection(db, 'wordLife'));
       // 동일한 날짜/구역/이름의 경우 최신 데이터만 사용 (중복 제거)
@@ -1075,7 +1225,7 @@ function App() {
         stat => stat.bibleReading > 0
       ).length;
 
-      setRankings({
+      const rankingsData = {
         totalParticipants: totalParticipants,
         district: {
           total: districtRankingTotal,
@@ -1107,7 +1257,13 @@ function App() {
             topAndAbove: getTopAndAboveRanks(personalWednesdayRanking, myWednesdayRank, name, parseInt(district))
           }
         }
-      });
+      };
+
+      // 캐시에 저장
+      cacheRef.current.rankings = rankingsData;
+      cacheRef.current.rankingsTimestamp = Date.now();
+
+      setRankings(rankingsData);
     } catch (error) {
       console.error('순위 계산 중 오류 발생:', error);
       alert('순위 계산 중 오류가 발생했습니다. 다시 시도해주세요.');
@@ -1638,8 +1794,12 @@ function App() {
             )}
             <tr>
               <td colSpan="2">
-                <button className="save-button" onClick={handleSave}>
-                  저장
+                <button
+                  className="save-button"
+                  onClick={handleSave}
+                  disabled={isSaving}
+                >
+                  {isSaving ? '저장 중...' : '저장'}
                 </button>
               </td>
             </tr>
@@ -1664,10 +1824,18 @@ function App() {
               )}
             </div>
             <div className="modal-buttons">
-              <button className="confirm-button" onClick={handleConfirmSave}>
-                확인
+              <button
+                className="confirm-button"
+                onClick={handleConfirmSave}
+                disabled={isSaving}
+              >
+                {isSaving ? '저장 중...' : '확인'}
               </button>
-              <button className="cancel-button" onClick={() => setShowConfirmModal(false)}>
+              <button
+                className="cancel-button"
+                onClick={() => setShowConfirmModal(false)}
+                disabled={isSaving}
+              >
                 취소
               </button>
             </div>

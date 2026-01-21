@@ -246,6 +246,13 @@ table tr:hover {
   transform: translateY(0);
 }
 
+.save-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  box-shadow: none;
+  transform: none;
+}
+
 .modal-overlay {
   position: fixed;
   top: 0;
@@ -990,6 +997,37 @@ table tr:hover {
   border-bottom: 1px solid #4a90e2;
 }
 
+.bible-memo-title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.bible-memo-title-zoom-button {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  border: 2px solid #9c27b0;
+  background-color: #fff;
+  color: #9c27b0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0;
+  transition: all 0.2s ease;
+}
+
+.bible-memo-title-zoom-button:hover {
+  background-color: #9c27b0;
+  color: #fff;
+}
+
+.bible-memo-title-zoom-button svg {
+  width: 18px;
+  height: 18px;
+}
+
 .bible-memo-player {
   display: flex;
   align-items: center;
@@ -1083,6 +1121,18 @@ table tr:hover {
   border-color: #fb8c00;
 }
 
+/* 성구암송 회전(전체 화면) 버튼 */
+.bible-memo-player-button.rotate {
+  border-color: #9c27b0;
+  color: #9c27b0;
+}
+
+.bible-memo-player-button.rotate:hover {
+  background-color: #9c27b0;
+  border-color: #9c27b0;
+  color: #fff;
+}
+
 .bible-memo-repeat-text {
   font-size: clamp(16px, 1.8vw, 20px);
   font-weight: 700;
@@ -1141,7 +1191,7 @@ table tr:hover {
 .bible-memo-tabs {
   display: flex;
   gap: 0;
-  margin-bottom: 20px;
+  margin-bottom: 4px; /* 탭과 본문 사이 간격 더 축소 */
   border-bottom: 1px solid #e0e0e0;
 }
 
@@ -1247,11 +1297,34 @@ table tr:hover {
 
 .bible-memo-content {
   min-height: 200px;
-  padding: clamp(16px, 2vw, 20px);
+  max-height: 400px;
+  padding: clamp(6px, 1vw, 10px); /* 위쪽 여백을 더 줄여 전체 간격 최소화 */
   background-color: #f5f5f5;
   border-radius: 0;
   position: relative;
   padding-left: clamp(24px, 2.8vw, 28px);
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch; /* iOS 부드러운 스크롤 */
+}
+
+/* 스크롤바 스타일링 (Webkit 브라우저) */
+.bible-memo-content::-webkit-scrollbar {
+  width: 8px;
+}
+
+.bible-memo-content::-webkit-scrollbar-track {
+  background: #f0f0f0;
+  border-radius: 4px;
+}
+
+.bible-memo-content::-webkit-scrollbar-thumb {
+  background: #999;
+  border-radius: 4px;
+}
+
+.bible-memo-content::-webkit-scrollbar-thumb:hover {
+  background: #666;
 }
 
 .bible-memo-content::before {
@@ -1355,35 +1428,9 @@ table tr:hover {
     padding-top: clamp(15px, 2vw, 20px);
   }
 
-  .bible-memo-title {
-    font-size: clamp(18px, 2.5vw, 24px);
-  }
-  
-  .bible-memo-header {
-    flex-wrap: nowrap;
-    gap: clamp(8px, 1.5vw, 16px);
-  }
-  
-  .bible-memo-player {
-    gap: clamp(6px, 0.8vw, 10px);
-  }
-  
-  .bible-memo-player-button {
-    width: clamp(32px, 3vw, 36px);
-    height: clamp(32px, 3vw, 36px);
-    min-width: 32px;
-    min-height: 32px;
-    border-radius: 8px;
-    border-width: 1.5px;
-  }
-  
-  .bible-memo-player-button svg {
-    width: clamp(14px, 1.4vw, 16px);
-    height: clamp(14px, 1.4vw, 16px);
-  }
-  
-  .bible-memo-repeat-text {
-    font-size: clamp(14px, 1.4vw, 16px);
+  .bible-memo-tabs {
+    padding: 8px 0;
+    margin-bottom: 12px;
   }
 
   .bible-memo-tab {
@@ -1391,7 +1438,7 @@ table tr:hover {
   }
 
   .bible-memo-tab-label {
-    font-size: clamp(11px, 1.4vw, 14px);
+    font-size: clamp(12px, 1.4vw, 14px);
   }
 
   .bible-memo-tab-ref {
@@ -1402,6 +1449,10 @@ table tr:hover {
     padding: clamp(12px, 1.8vw, 15px);
     padding-left: clamp(20px, 2.5vw, 24px);
     min-height: clamp(130px, 18vw, 150px);
+    max-height: 300px;
+    overflow-y: auto;
+    overflow-x: hidden;
+    -webkit-overflow-scrolling: touch;
   }
 
   .bible-memo-content::before {
@@ -1420,58 +1471,31 @@ table tr:hover {
     padding-top: clamp(12px, 2.5vw, 15px);
   }
 
-  .bible-memo-title {
-    font-size: clamp(16px, 3vw, 20px);
-  }
-  
-  .bible-memo-header {
-    flex-wrap: nowrap;
-    gap: clamp(8px, 2vw, 12px);
-  }
-  
-  .bible-memo-player {
-    flex-shrink: 0;
-    gap: clamp(5px, 0.8vw, 7px);
-  }
-  
-  .bible-memo-player-button {
-    width: clamp(30px, 2.8vw, 34px);
-    height: clamp(30px, 2.8vw, 34px);
-    min-width: 30px;
-    min-height: 30px;
-    border-radius: 6px;
-    border-width: 1.5px;
-  }
-  
-  .bible-memo-player-button svg {
-    width: clamp(12px, 1.2vw, 14px);
-    height: clamp(12px, 1.2vw, 14px);
-  }
-  
-  .bible-memo-repeat-text {
-    font-size: clamp(12px, 1.2vw, 14px);
-  }
-
   .bible-memo-tabs {
-    gap: clamp(3px, 0.8vw, 5px);
+    padding: 8px 0;
+    margin-bottom: 12px;
   }
 
   .bible-memo-tab {
-    padding: clamp(6px, 1.2vw, 8px) clamp(8px, 1.5vw, 10px);
+    padding: clamp(8px, 1.2vw, 10px) clamp(10px, 1.5vw, 15px);
   }
 
   .bible-memo-tab-label {
-    font-size: clamp(10px, 2vw, 13px);
+    font-size: clamp(11px, 1.4vw, 14px);
   }
 
   .bible-memo-tab-ref {
-    font-size: clamp(13px, 2.5vw, 16px);
+    font-size: clamp(14px, 2vw, 18px);
   }
 
   .bible-memo-content {
     padding: clamp(10px, 2vw, 12px);
     padding-left: clamp(18px, 3vw, 22px);
     min-height: clamp(100px, 20vw, 120px);
+    max-height: 250px;
+    overflow-y: auto;
+    overflow-x: hidden;
+    -webkit-overflow-scrolling: touch;
   }
 
   .bible-memo-content::before {
@@ -1526,5 +1550,221 @@ table tr:hover {
 
   .bible-memo-text {
     font-size: clamp(14px, 3vw, 16px);
+  }
+}
+
+/* 성구암송 전체 화면 오버레이 */
+.bible-memo-fullscreen-overlay {
+  position: fixed;
+  inset: 0;
+  background-color: #fff;
+  z-index: 9999;
+  overflow: hidden;
+}
+
+.bible-memo-fullscreen-container {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 100vh;
+  height: 100vw;
+  transform: translate(-50%, -50%) rotate(90deg);
+  transform-origin: center center;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  margin: 0;
+  padding: 0;
+}
+
+.bible-memo-fullscreen-close {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  background: rgba(0, 0, 0, 0.35);
+  border: 2px solid rgba(0, 0, 0, 0.5);
+  color: #fff;
+  font-size: 24px;
+  cursor: pointer;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  transition: all 0.2s;
+  z-index: 10000;
+  font-weight: bold;
+}
+
+.bible-memo-fullscreen-close:hover {
+  background-color: rgba(0, 0, 0, 0.6);
+  border-color: rgba(0, 0, 0, 0.9);
+}
+
+.bible-memo-section-fullscreen {
+  background-color: #fff;
+  border-radius: 0;
+  padding: clamp(20px, 2.5vh, 32px) clamp(24px, 3vw, 40px);
+  box-shadow: none;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  overflow-y: auto;
+  overflow-x: hidden;
+  margin: 0;
+}
+
+/* 전체 화면 모드: 가로형 레이아웃 (회전된 화면) */
+.bible-memo-section-fullscreen .bible-memo-tabs {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 28px;
+  padding: 16px 0;
+  border-bottom-width: 3px;
+  gap: 12px;
+}
+
+.bible-memo-section-fullscreen .bible-memo-tabs-container {
+  display: flex;
+  gap: 16px;
+  flex: 1;
+  justify-content: center;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.bible-memo-section-fullscreen .bible-memo-zoom-button {
+  width: clamp(44px, 5vh, 52px);
+  height: clamp(44px, 5vh, 52px);
+  flex-shrink: 0;
+}
+
+.bible-memo-section-fullscreen .bible-memo-zoom-button svg {
+  width: clamp(22px, 2.5vh, 26px);
+  height: clamp(22px, 2.5vh, 26px);
+}
+
+.bible-memo-section-fullscreen .bible-memo-tab {
+  flex: 0 0 auto;
+  padding: 14px 24px;
+  gap: 8px;
+  border-bottom-width: 4px;
+  flex-direction: row;
+  align-items: center;
+  white-space: nowrap;
+}
+
+.bible-memo-section-fullscreen .bible-memo-tab-label {
+  font-size: clamp(22px, 2.8vh, 30px);
+  font-weight: 700;
+}
+
+.bible-memo-section-fullscreen .bible-memo-tab.active .bible-memo-tab-label {
+  font-weight: 800;
+}
+
+.bible-memo-section-fullscreen .bible-memo-tab-ref {
+  font-size: clamp(22px, 2.8vh, 30px);
+  font-weight: 600;
+}
+
+.bible-memo-section-fullscreen .bible-memo-tab.active .bible-memo-tab-ref {
+  font-weight: 700;
+}
+
+.bible-memo-section-fullscreen .bible-memo-content {
+  min-height: auto;
+  max-height: none;
+  padding: clamp(28px, 4vh, 40px);
+  padding-left: clamp(36px, 5vh, 48px);
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* 전체 화면 모드 스크롤바 스타일링 */
+.bible-memo-section-fullscreen .bible-memo-content::-webkit-scrollbar {
+  width: 10px;
+}
+
+.bible-memo-section-fullscreen .bible-memo-content::-webkit-scrollbar-track {
+  background: #f0f0f0;
+  border-radius: 5px;
+}
+
+.bible-memo-section-fullscreen .bible-memo-content::-webkit-scrollbar-thumb {
+  background: #999;
+  border-radius: 5px;
+}
+
+.bible-memo-section-fullscreen .bible-memo-content::-webkit-scrollbar-thumb:hover {
+  background: #666;
+}
+
+.bible-memo-section-fullscreen .bible-memo-content::before {
+  width: clamp(10px, 1.2vh, 12px);
+}
+
+.bible-memo-section-fullscreen .bible-memo-text {
+  font-size: clamp(22px, 3vh, 28px);
+  line-height: 1.7;
+}
+
+.bible-memo-section-fullscreen .bible-memo-verse-number {
+  font-size: clamp(18px, 2.4vh, 24px);
+}
+
+/* 회전된 화면에서는 모바일도 가로형이므로 큰 화면 기준으로 적용 */
+@media (max-width: 768px) {
+  .bible-memo-section-fullscreen {
+    padding: clamp(20px, 2.5vh, 28px) clamp(20px, 2.5vw, 32px);
+    border-radius: 0;
+  }
+
+  .bible-memo-section-fullscreen .bible-memo-tabs {
+    padding: 12px 0;
+    margin-bottom: 24px;
+    gap: 10px;
+  }
+
+  .bible-memo-section-fullscreen .bible-memo-tab {
+    padding: 12px 18px;
+    gap: 6px;
+  }
+
+  .bible-memo-section-fullscreen .bible-memo-tab-label {
+    font-size: clamp(20px, 2.5vh, 26px);
+    font-weight: 700;
+  }
+
+  .bible-memo-section-fullscreen .bible-memo-tab.active .bible-memo-tab-label {
+    font-weight: 800;
+  }
+
+  .bible-memo-section-fullscreen .bible-memo-tab-ref {
+    font-size: clamp(20px, 2.5vh, 26px);
+    font-weight: 600;
+  }
+
+  .bible-memo-section-fullscreen .bible-memo-tab.active .bible-memo-tab-ref {
+    font-weight: 700;
+  }
+
+  .bible-memo-section-fullscreen .bible-memo-content {
+    padding: clamp(24px, 3.5vh, 32px);
+    padding-left: clamp(32px, 4.5vh, 40px);
+  }
+
+  .bible-memo-section-fullscreen .bible-memo-text {
+    font-size: clamp(20px, 3vh, 26px);
+    line-height: 1.7;
+  }
+
+  .bible-memo-section-fullscreen .bible-memo-verse-number {
+    font-size: clamp(16px, 2.4vh, 22px);
   }
 }
