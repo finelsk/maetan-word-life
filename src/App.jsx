@@ -5,6 +5,7 @@ import { queryGeminiAgent, fetchAllNames } from './geminiAgent';
 
 // 성구암송 섹션 컴포넌트
 const BibleMemoSection = ({ selectedDate }) => {
+  const memoCacheKey = 'bibleMemoCache';
   // 기본값은 '이번주', 기존에 저장된 값이 있으면 복원
   const [activeTab, setActiveTab] = useState(() => {
     if (typeof window === 'undefined') return 'thisWeek';
@@ -52,7 +53,6 @@ const BibleMemoSection = ({ selectedDate }) => {
   }, [activeTab, repeatMode]);
 
   // 인덱스로부터 MP3 파일 경로 생성
-  // mp3Url 가져오기 (Firebase에서 로드된 memos에서)
   const getAudioSrc = (tabKey) => {
     return mp3Urls[tabKey] || '';
   };
@@ -143,20 +143,9 @@ const BibleMemoSection = ({ selectedDate }) => {
 
     if (repeatMode === 'all') {
       const nextTab = getNextTabForAllRepeat(currentPlayingTab);
+      setIsPlaying(true);
       setCurrentPlayingTab(nextTab);
       setActiveTab(nextTab); // 탭/본문도 같이 이동
-      // src는 currentPlayingTab 변경으로 useEffect에서 갱신
-      setTimeout(() => {
-        if (!audioRef.current) return;
-        audioRef.current
-          .play()
-          .then(() => {
-            setIsPlaying(true);
-          })
-          .catch(() => {
-            setIsPlaying(false);
-          });
-      }, 0);
       return;
     }
 
@@ -185,27 +174,24 @@ const BibleMemoSection = ({ selectedDate }) => {
     return index;
   };
 
+  const getWeekKeyFromDate = (dateString) => {
+    const baseDate = dateString || (() => {
+      const today = new Date();
+      return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+    })();
+    const date = new Date(baseDate);
+    const dayOfWeek = date.getDay(); // 0 = 일요일
+    const targetSunday = new Date(date);
+    if (dayOfWeek !== 0) {
+      targetSunday.setDate(date.getDate() - dayOfWeek);
+    }
+    return `${targetSunday.getFullYear()}-${String(targetSunday.getMonth() + 1).padStart(2, '0')}-${String(targetSunday.getDate()).padStart(2, '0')}`;
+  };
+
   // 주일 기준으로 이번주 인덱스 계산
   const calculateThisWeekIndex = (dateString) => {
-    if (!dateString) {
-      // 날짜가 없으면 오늘 날짜 기준
-      const today = new Date();
-      dateString = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
-    }
-
-    const date = new Date(dateString);
-    const dayOfWeek = date.getDay(); // 0 = 일요일
-    
-    // 주일(일요일)이 아니면 가장 가까운 주일로 조정
-    let targetSunday;
-    if (dayOfWeek === 0) {
-      targetSunday = new Date(date);
-    } else {
-      // 가장 가까운 과거 주일로 이동
-      const daysToSubtract = dayOfWeek;
-      targetSunday = new Date(date);
-      targetSunday.setDate(date.getDate() - daysToSubtract);
-    }
+    const weekKey = getWeekKeyFromDate(dateString);
+    const targetSunday = new Date(weekKey);
 
     // 기준 주일: 2026-01-19 (일요일) = 135번
     // 2026-01-26 (일요일) = 136번이 되어야 하므로, 기준은 135번이 맞음
@@ -241,6 +227,36 @@ const BibleMemoSection = ({ selectedDate }) => {
     setLoading(true);
     setError('');
     try {
+      const weekKey = getWeekKeyFromDate(selectedDate);
+      if (typeof window !== 'undefined') {
+        const cacheRaw = window.localStorage.getItem(memoCacheKey);
+        if (cacheRaw) {
+          try {
+            const cache = JSON.parse(cacheRaw);
+            if (cache?.weekKey === weekKey && cache.items) {
+              const { lastWeek: lastIdx, thisWeek: thisIdx, nextWeek: nextIdx } = currentIndices;
+              const lastWeek = cache.items[String(lastIdx)] || null;
+              const thisWeek = cache.items[String(thisIdx)] || null;
+              const nextWeek = cache.items[String(nextIdx)] || null;
+              if (lastWeek && thisWeek && nextWeek) {
+                setMemos({ lastWeek, thisWeek, nextWeek });
+                setMp3Urls({
+                  lastWeek: lastWeek?.mp3Url || '',
+                  thisWeek: thisWeek?.mp3Url || '',
+                  nextWeek: nextWeek?.mp3Url || ''
+                });
+                setLoading(false);
+                return;
+              }
+            } else if (cache?.weekKey && cache.weekKey !== weekKey) {
+              window.localStorage.removeItem(memoCacheKey);
+            }
+          } catch (cacheError) {
+            window.localStorage.removeItem(memoCacheKey);
+          }
+        }
+      }
+
       const fetchOne = async (index) => {
         const id = String(index);
         try {
@@ -275,6 +291,18 @@ const BibleMemoSection = ({ selectedDate }) => {
         thisWeek: thisWeek?.mp3Url || '',
         nextWeek: nextWeek?.mp3Url || ''
       });
+
+      if (typeof window !== 'undefined') {
+        const cacheItems = {
+          [String(lastIdx)]: lastWeek,
+          [String(thisIdx)]: thisWeek,
+          [String(nextIdx)]: nextWeek
+        };
+        window.localStorage.setItem(
+          memoCacheKey,
+          JSON.stringify({ weekKey, items: cacheItems, cachedAt: Date.now() })
+        );
+      }
     } catch (e) {
       console.error('성구암송 로딩 오류:', e);
       setError('성구암송 데이터를 불러오는 중 오류가 발생했습니다.');
@@ -290,9 +318,7 @@ const BibleMemoSection = ({ selectedDate }) => {
   }, [currentIndices]);
 
   const renderContent = () => {
-    const key =
-      activeTab === 'lastWeek' ? 'lastWeek' : activeTab === 'nextWeek' ? 'nextWeek' : 'thisWeek';
-    const memo = memos[key];
+    const memo = memos[activeTab];
 
     if (loading && !memo) {
       return (
@@ -307,7 +333,7 @@ const BibleMemoSection = ({ selectedDate }) => {
     }
 
     if (!memo || !memo.text) {
-      if (key === 'nextWeek') {
+      if (activeTab === 'nextWeek') {
         return (
           <div className="bible-memo-empty">
             다음주 암송 내용이 아직 업데이트되지 않았습니다.
@@ -322,9 +348,9 @@ const BibleMemoSection = ({ selectedDate }) => {
     }
 
     const contentClass =
-      key === 'lastWeek'
+      activeTab === 'lastWeek'
         ? 'bible-memo-content bible-memo-content-lastWeek'
-        : key === 'nextWeek'
+        : activeTab === 'nextWeek'
         ? 'bible-memo-content bible-memo-content-nextWeek'
         : 'bible-memo-content bible-memo-content-thisWeek';
 
@@ -509,6 +535,43 @@ function App() {
   const [passwordError, setPasswordError] = useState('');
   const [showNoChangesModal, setShowNoChangesModal] = useState(false);
   const [showSaveSuccessModal, setShowSaveSuccessModal] = useState(false);
+  const userCacheTtlMs = 24 * 60 * 60 * 1000;
+
+  const getUserCacheKey = (dateString, districtValue, nameValue) =>
+    `wordLifeCache:${dateString}:${districtValue}:${nameValue}`;
+
+  const readUserCache = (cacheKey) => {
+    if (typeof window === 'undefined') return null;
+    const raw = window.localStorage.getItem(cacheKey);
+    if (!raw) return null;
+    try {
+      return JSON.parse(raw);
+    } catch (error) {
+      window.localStorage.removeItem(cacheKey);
+      return null;
+    }
+  };
+
+  const writeUserCache = (cacheKey, data) => {
+    if (typeof window === 'undefined') return;
+    window.localStorage.setItem(
+      cacheKey,
+      JSON.stringify({
+        cachedAt: Date.now(),
+        data
+      })
+    );
+  };
+
+  const removeUserCache = (cacheKey) => {
+    if (typeof window === 'undefined') return;
+    window.localStorage.removeItem(cacheKey);
+  };
+
+  const isCacheExpired = (cachedAt) => {
+    if (!cachedAt) return true;
+    return Date.now() - cachedAt > userCacheTtlMs;
+  };
 
   // 날짜 포맷팅 함수
   const formatDate = (dateString) => {
@@ -523,9 +586,19 @@ function App() {
   // 날짜 변경 시 데이터 불러오기
   const loadDateData = async (dateString) => {
     if (!district || !name || !dateString) return;
-    
+
+    const trimmedName = name.trim();
+    const cacheKey = getUserCacheKey(dateString, parseInt(district), trimmedName);
+    const cached = readUserCache(cacheKey);
+    if (cached && !isCacheExpired(cached.cachedAt)) {
+      setBibleReading(cached.data?.bibleReading ? String(cached.data.bibleReading) : '');
+      setSundayAttendance(cached.data?.sundayAttendance || '');
+      setWednesdayAttendance(cached.data?.wednesdayAttendance || '');
+    } else if (cached) {
+      removeUserCache(cacheKey);
+    }
+
     try {
-      const trimmedName = name.trim();
       const existingQuery = query(
         collection(db, 'wordLife'),
         where('date', '==', dateString),
@@ -549,16 +622,28 @@ function App() {
         });
         
         if (latestData) {
-          // 입력 필드에 데이터 표시
-          setBibleReading(latestData.bibleReading ? String(latestData.bibleReading) : '');
-          setSundayAttendance(latestData.sundayAttendance || '');
-          setWednesdayAttendance(latestData.wednesdayAttendance || '');
+          const latestTimestampMs = latestTimestamp ? latestTimestamp.getTime() : 0;
+          const cachedTimestampMs = cached?.data?.timestampMs || 0;
+          if (!cached || latestTimestampMs > cachedTimestampMs) {
+            // 입력 필드에 데이터 표시
+            setBibleReading(latestData.bibleReading ? String(latestData.bibleReading) : '');
+            setSundayAttendance(latestData.sundayAttendance || '');
+            setWednesdayAttendance(latestData.wednesdayAttendance || '');
+          }
+
+          writeUserCache(cacheKey, {
+            bibleReading: latestData.bibleReading || 0,
+            sundayAttendance: latestData.sundayAttendance || '',
+            wednesdayAttendance: latestData.wednesdayAttendance || '',
+            timestampMs: latestTimestampMs
+          });
         }
       } else {
         // 데이터가 없으면 초기화
         setBibleReading('');
         setSundayAttendance('');
         setWednesdayAttendance('');
+        removeUserCache(cacheKey);
       }
     } catch (error) {
       console.error('데이터 불러오기 오류:', error);
@@ -732,6 +817,14 @@ function App() {
       
       // 기존 문서가 있으면 업데이트, 없으면 새로 생성
       await setDoc(doc(db, 'wordLife', docId), newData);
+
+      const cacheKey = getUserCacheKey(dateString, parseInt(district), trimmedName);
+      writeUserCache(cacheKey, {
+        bibleReading: newData.bibleReading || 0,
+        sundayAttendance: newData.sundayAttendance || '',
+        wednesdayAttendance: newData.wednesdayAttendance || '',
+        timestampMs: newData.timestamp ? new Date(newData.timestamp).getTime() : Date.now()
+      });
       
       // 순위 계산 및 표시
       try {

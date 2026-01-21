@@ -6,7 +6,6 @@ import { db } from './firebase';
 // 환경 변수에서 가져오거나 직접 설정
 const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY || '';
 
-// 디버깅: 환경 변수 확인 (개발 환경에서만)
 // Gemini AI 초기화
 let genAI = null;
 if (GEMINI_API_KEY) {
@@ -25,16 +24,14 @@ if (GEMINI_API_KEY) {
 export const fetchWordLifeData = async (options = {}) => {
   try {
     const {
-      limitCount = null, // 기본값 null로 변경하여 제한 없음
+      limitCount = null,
       orderByField = 'timestamp',
       orderDirection = 'desc'
     } = options;
 
     const wordLifeRef = collection(db, 'wordLife');
-    // orderBy를 제거하여 모든 데이터를 가져오고 클라이언트에서 정렬
-    let q = query(wordLifeRef); 
-    
-    // limitCount가 null이 아니면 limit 적용 (현재는 null이므로 적용 안됨)
+    let q = query(wordLifeRef);
+
     if (limitCount !== null) {
       q = query(wordLifeRef, limit(limitCount));
     }
@@ -102,17 +99,15 @@ export const fetchAllNames = async () => {
 export const fetchDataByName = async (name, options = {}) => {
   try {
     const {
-      limitCount = null // 기본값 null로 변경하여 제한 없음
+      limitCount = null
     } = options;
 
     const wordLifeRef = collection(db, 'wordLife');
-    // 이름으로만 필터링하고, orderBy와 limit은 클라이언트에서 처리
     let q = query(
       wordLifeRef,
-      where('name', '==', name.trim()) // 이름 정규화
+      where('name', '==', name.trim())
     );
-    
-    // limitCount가 null이 아니면 limit 적용 (현재는 null이므로 적용 안됨)
+
     if (limitCount !== null) {
       q = query(
         wordLifeRef,
@@ -142,7 +137,6 @@ export const fetchDataByName = async (name, options = {}) => {
       });
     });
 
-    // 클라이언트에서 timestamp 기준으로 정렬 (최신순)
     data.sort((a, b) => (b.timestampValue || 0) - (a.timestampValue || 0));
 
     return data;
@@ -695,7 +689,3 @@ ${dataText}
     throw error;
   }
 };
-
-
-
-
