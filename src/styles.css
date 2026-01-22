@@ -1121,6 +1121,17 @@ table tr:hover {
   border-color: #fb8c00;
 }
 
+.bible-memo-player-button.hymn {
+  border-color: #9c27b0;
+  color: #9c27b0;
+}
+
+.bible-memo-player-button.hymn:hover {
+  background-color: #9c27b0;
+  color: #fff;
+  border-color: #9c27b0;
+}
+
 /* 성구암송 회전(전체 화면) 버튼 */
 .bible-memo-player-button.rotate {
   border-color: #9c27b0;
