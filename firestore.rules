@@ -1,0 +1,27 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // 말씀생활 기록 (wordLife 컬렉션)
+    match /wordLife/{docId} {
+      allow read, write: if true; // 기존 규칙 유지
+    }
+    
+    // 성구암송 (bibleMemo 컬렉션)
+    match /bibleMemo/{docId} {
+      allow read: if true; // 누구나 읽기 가능
+      allow write: if false; // 관리자만 쓰기 가능
+    }
+    
+    // 찬송가 (hymns 컬렉션)
+    match /hymns/{hymnId} {
+      allow read: if true; // 누구나 읽기 가능
+      allow write: if false; // 관리자만 쓰기 가능 (업로드 스크립트)
+    }
+    
+    // 기타 컬렉션은 인증된 사용자만
+    match /{document=**} {
+      allow read, write: if request.auth != null;
+    }
+  }
+}

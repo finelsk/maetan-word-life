@@ -1,5 +1,6 @@
 import { initializeApp } from 'firebase/app';
 import { getFirestore, connectFirestoreEmulator, enableIndexedDbPersistence } from 'firebase/firestore';
+import { getStorage } from 'firebase/storage';
 
 // Firebase 설정 - 사용자가 자신의 Firebase 프로젝트 설정으로 교체해야 합니다
 const firebaseConfig = {
@@ -45,5 +46,14 @@ try {
   throw error;
 }
 
-export { db, app };
+// Firebase Storage 초기화
+let storage;
+try {
+  storage = getStorage(app);
+} catch (error) {
+  console.error('Firebase Storage 초기화 실패:', error);
+  throw error;
+}
+
+export { db, app, storage };
 

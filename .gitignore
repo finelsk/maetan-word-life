@@ -11,6 +11,8 @@ build/
 .firebase/
 firebase-debug.log
 firestore-debug.log
+# Firebase Admin Service Account Key (보안 중요!)
+scripts/serviceAccountKey.json
 
 # Environment variables
 .env

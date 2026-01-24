@@ -108,21 +108,180 @@
   padding: 15px 20px;
   background: #f9f9f9;
   border-bottom: 1px solid #e0e0e0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
 }
 
-.hymn-search-input-wrapper {
+.hymn-filter-row {
   display: flex;
-  gap: 10px;
-  margin-bottom: 10px;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.hymn-filter-row button {
+  padding: 10px 16px;
+  border: 1px solid #ddd;
+  background: white;
+  color: #666;
+  border-radius: 6px;
+  font-size: 16px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+  min-width: 60px;
+}
+
+.hymn-filter-row button.active {
+  background: #4a90e2;
+  color: white;
+  border-color: #4a90e2;
+}
+
+.hymn-filter-row button:hover:not(.active) {
+  background: #f0f0f0;
+}
+
+.hymn-divider {
+  width: 1px;
+  height: 24px;
+  background: #ddd;
+  margin: 0 4px;
+  flex-shrink: 0;
+}
+
+.hymn-search-input-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* 검색 입력 래퍼 (입력창 + 지우기 버튼) */
+.hymn-search-input-wrapper {
+  flex: 1;
+  position: relative;
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+
+.hymn-search-input-wrapper .hymn-search-input {
+  width: 100%;
+  padding-right: 40px; /* 지우기 버튼 공간 확보 */
+}
+
+/* 검색어 지우기 버튼 */
+.hymn-search-clear-btn {
+  position: absolute;
+  right: 8px;
+  background: none;
+  border: none;
+  color: #999;
+  font-size: 18px;
+  cursor: pointer;
+  padding: 4px;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  transition: all 0.2s;
+}
+
+.hymn-search-clear-btn:hover {
+  background: #f0f0f0;
+  color: #666;
+}
+
+/* 반응형 - 작은 화면 */
+@media (max-width: 768px) {
+  .hymn-search-controls {
+    padding: 12px 15px;
+  }
+  
+  .hymn-filter-row {
+    gap: 6px;
+  }
+  
+  .hymn-filter-row button {
+    padding: 8px 12px;
+    font-size: 13px;
+    min-width: 50px;
+  }
+  
+  .hymn-divider {
+    margin: 0 2px;
+  }
+  
+  .hymn-close-btn-top {
+    padding: 8px 12px;
+    font-size: 16px;
+    min-width: 40px;
+  }
+  
+  .hymn-search-item {
+    padding: 7px 15px;
+    gap: 10px;
+  }
+  
+  .hymn-item-number {
+    font-size: 15px;
+    min-width: 40px;
+  }
+  
+  .hymn-item-title {
+    font-size: 15px;
+  }
+}
+
+@media (max-width: 480px) {
+  .hymn-search-controls {
+    padding: 10px 12px;
+  }
+  
+  .hymn-filter-row {
+    gap: 5px;
+  }
+  
+  .hymn-filter-row button {
+    padding: 7px 10px;
+    font-size: 12px;
+    min-width: 45px;
+  }
+  
+  .hymn-close-btn-top {
+    padding: 7px 10px;
+    font-size: 14px;
+    min-width: 36px;
+  }
+  
+  .hymn-search-item {
+    padding: 6px 12px;
+    gap: 8px;
+  }
+  
+  .hymn-item-number {
+    font-size: 14px;
+    min-width: 35px;
+  }
+  
+  .hymn-item-title {
+    font-size: 14px;
+  }
 }
 
 .hymn-search-input {
   flex: 1;
   padding: 12px 16px;
   font-size: 16px;
-  border: 2px solid #ddd;
+  border: 1px solid #ddd;
   border-radius: 8px;
   box-sizing: border-box;
+  background: white;
+  min-width: 0;
 }
 
 .hymn-search-input:focus {
@@ -132,41 +291,76 @@
 
 .hymn-favorite-toggle {
   padding: 12px 16px;
-  border: 2px solid #ffd700;
+  border: 1px solid #ddd;
   background: white;
-  color: #ffd700;
-  border-radius: 8px;
   font-size: 18px;
   cursor: pointer;
   transition: all 0.2s;
+  border-radius: 8px;
+  min-width: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
 }
 
 .hymn-favorite-toggle.active {
   background: #ffd700;
-  color: white;
+  border-color: #ffd700;
 }
 
-.hymn-search-type-buttons {
-  display: flex;
-  gap: 8px;
+.hymn-favorite-toggle:hover:not(.active) {
+  background: #f0f0f0;
 }
 
-.hymn-search-type-buttons button {
-  flex: 1;
-  padding: 8px 12px;
+/* 반응형 - 검색 입력창 */
+@media (max-width: 768px) {
+  .hymn-search-input {
+    padding: 10px 14px;
+    font-size: 15px;
+  }
+  
+  .hymn-favorite-toggle {
+    padding: 10px 14px;
+    min-width: 44px;
+    font-size: 16px;
+  }
+}
+
+@media (max-width: 480px) {
+  .hymn-search-input {
+    padding: 9px 12px;
+    font-size: 14px;
+  }
+  
+  .hymn-favorite-toggle {
+    padding: 9px 12px;
+    min-width: 40px;
+    font-size: 15px;
+  }
+}
+
+.hymn-close-btn-top {
+  padding: 10px 16px;
   border: 1px solid #ddd;
   background: white;
   color: #666;
   border-radius: 6px;
-  font-size: 14px;
+  font-size: 20px;
   cursor: pointer;
   transition: all 0.2s;
+  line-height: 1;
+  flex-shrink: 0;
+  min-width: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 500;
 }
 
-.hymn-search-type-buttons button.active {
-  background: #4a90e2;
-  color: white;
-  border-color: #4a90e2;
+.hymn-close-btn-top:hover {
+  background: #f0f0f0;
+  color: #333;
 }
 
 .hymn-search-results {
@@ -178,8 +372,8 @@
 .hymn-search-item {
   display: flex;
   align-items: center;
-  gap: 15px;
-  padding: 15px;
+  gap: 12px;
+  padding: 8px 15px;
   border-bottom: 1px solid #f0f0f0;
   cursor: pointer;
   transition: background-color 0.2s;
@@ -190,41 +384,37 @@
 }
 
 .hymn-item-number {
-  font-weight: bold;
-  font-size: 20px;
+  font-weight: 600;
+  font-size: 16px;
   color: #4a90e2;
-  min-width: 50px;
+  min-width: 45px;
   text-align: center;
 }
 
-.hymn-item-content {
-  flex: 1;
-}
-
 .hymn-item-title {
+  flex: 1;
   font-weight: 500;
   font-size: 16px;
   color: #333;
-  margin-bottom: 4px;
-}
-
-.hymn-item-first-line {
-  font-size: 14px;
-  color: #666;
+  line-height: 1.3;
 }
 
 .hymn-item-favorite {
   background: none;
   border: none;
   font-size: 20px;
-  color: #ddd;
+  color: white;
+  text-shadow: 0 0 2px #ddd;
   cursor: pointer;
   padding: 5px;
   transition: all 0.2s;
+  filter: grayscale(100%);
 }
 
 .hymn-item-favorite.active {
   color: #ffd700;
+  text-shadow: 0 0 3px rgba(255, 215, 0, 0.5);
+  filter: grayscale(0%);
 }
 
 .hymn-loading,
@@ -437,20 +627,19 @@
   flex: 1;
   overflow: auto;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: center;
   background: #000;
-}
-
-.hymn-score-container.fullscreen.landscape {
-  overflow-y: auto;
-  overflow-x: hidden;
+  padding: 20px 10px 10px 10px;
+  box-sizing: border-box;
 }
 
 .hymn-score-image {
   display: block;
   user-select: none;
   -webkit-user-select: none;
+  width: 100%;
+  height: auto;
 }
 
 .hymn-score-error {
@@ -460,6 +649,190 @@
   height: 100%;
   color: white;
   font-size: 18px;
+}
+
+/* 가로 화면 전체화면 오버레이 (암송 UI와 유사) */
+.hymn-landscape-overlay {
+  position: fixed;
+  inset: 0;
+  background-color: #000;
+  z-index: 10003;
+  overflow: hidden;
+}
+
+.hymn-landscape-container {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 100vh;
+  height: 100vw;
+  transform: translate(-50%, -50%) rotate(90deg);
+  transform-origin: center center;
+  display: flex;
+  flex-direction: column;
+  background: #000;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+
+.hymn-landscape-close {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  background: rgba(255, 255, 255, 0.15);
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  color: #fff;
+  font-size: 24px;
+  cursor: pointer;
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  transition: all 0.2s;
+  z-index: 10000;
+  font-weight: bold;
+}
+
+.hymn-landscape-close:hover {
+  background: rgba(255, 255, 255, 0.25);
+  border-color: rgba(255, 255, 255, 0.5);
+}
+
+.hymn-landscape-controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 24px;
+  background: rgba(0, 0, 0, 0.5);
+  flex-wrap: wrap;
+  z-index: 100;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+
+.hymn-landscape-control-btn {
+  padding: 10px 20px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  background: rgba(255, 255, 255, 0.1);
+  color: white;
+  border-radius: 8px;
+  font-size: 16px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+
+.hymn-landscape-control-btn:hover {
+  background: rgba(255, 255, 255, 0.2);
+  border-color: rgba(255, 255, 255, 0.5);
+}
+
+.hymn-landscape-control-btn.active {
+  background: #4a90e2;
+  border-color: #4a90e2;
+}
+
+.hymn-landscape-speed-control {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: white;
+  font-size: 16px;
+}
+
+.hymn-speed-btn {
+  padding: 8px 14px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  background: rgba(255, 255, 255, 0.1);
+  color: white;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  min-width: 60px;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+
+.hymn-speed-btn:hover {
+  background: rgba(255, 255, 255, 0.2);
+  border-color: rgba(255, 255, 255, 0.5);
+}
+
+.hymn-speed-btn.active {
+  background: #4a90e2;
+  border-color: #4a90e2;
+  color: white;
+}
+
+.hymn-landscape-score-container {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  background: #000;
+  width: 100%;
+  min-height: 0;
+  position: relative;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+  padding-top: 20px;
+  box-sizing: border-box;
+}
+
+.hymn-landscape-score-image {
+  width: 100%;
+  height: auto;
+  display: block;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+  object-fit: contain;
+  max-width: 100%;
+  pointer-events: none;
+}
+
+/* 처음으로 이동 버튼 */
+.hymn-scroll-to-top-btn {
+  position: absolute;
+  bottom: 80px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 12px 24px;
+  background: rgba(74, 144, 226, 0.9);
+  border: 2px solid rgba(255, 255, 255, 0.5);
+  color: white;
+  border-radius: 25px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s;
+  z-index: 1000;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.hymn-scroll-to-top-btn:hover {
+  background: rgba(74, 144, 226, 1);
+  transform: translateX(-50%) scale(1.05);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4);
 }
 
 /* 반응형 */

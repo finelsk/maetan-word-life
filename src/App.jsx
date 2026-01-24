@@ -588,8 +588,7 @@ const BibleMemoSection = ({ selectedDate, onOpenHymn }) => {
                 {repeatMode === 'all' ? 'A' : repeatMode === 'single' ? '1' : 'A'}
               </span>
             </button>
-            {/* 찬송가 기능 개발 중 - 임시 주석처리 */}
-            {/* {onOpenHymn && (
+            {onOpenHymn && (
               <button
                 type="button"
                 className="bible-memo-player-button hymn"
@@ -600,7 +599,7 @@ const BibleMemoSection = ({ selectedDate, onOpenHymn }) => {
                   <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/>
                 </svg>
               </button>
-            )} */}
+            )}
           </div>
           <audio ref={audioRef} onEnded={handleEnded} className="bible-memo-audio" />
         </div>
@@ -918,6 +917,7 @@ function App() {
     setShowConfirmModal(false);
     setIsSaving(true);
     
+    // 오늘 날짜 기준으로 저장
     const dateString = selectedDate;
     // 이름에서 공백 제거
     const trimmedName = name.trim();
@@ -1180,20 +1180,9 @@ function App() {
         'onSite'
       );
 
-      // 개인별 집계 (동일한 날짜의 경우 최신 데이터만 사용)
+      // 개인별 집계
       const personalStats = {};
-      const dateMap = new Map(); // 날짜별 최신 데이터 추적
-      
       allData.forEach(record => {
-        const dateKey = `${record.date}_${record.district}_${record.name}`;
-        if (!dateMap.has(dateKey) || 
-            (record.timestamp && dateMap.get(dateKey).timestamp < record.timestamp)) {
-          dateMap.set(dateKey, record);
-        }
-      });
-      
-      // 최신 데이터만 사용하여 집계
-      dateMap.forEach(record => {
         const key = `${record.district}-${record.name}`;
         if (!personalStats[key]) {
           personalStats[key] = {
@@ -1205,8 +1194,8 @@ function App() {
             wednesdayCount: 0
           };
         }
+        personalStats[key].bibleReading += record.bibleReading || 0;
         if (record.bibleReading > 0) {
-          personalStats[key].bibleReading += record.bibleReading;
           personalStats[key].bibleReadingDays++;
         }
         if (record.sundayAttendance) {
@@ -1712,12 +1701,14 @@ function App() {
                     <div className="personal-stat-others">
                       {rankings.personal.bibleReading.topAndAbove.top && (
                         <div className="other-rank-item">
-                          1위 : {rankings.personal.bibleReading.topAndAbove.top.value}장({rankings.personal.bibleReading.topAndAbove.top.name})
+                          1위 : {rankings.personal.bibleReading.topAndAbove.top.value}장
+                          ({rankings.personal.bibleReading.topAndAbove.top.name})
                         </div>
                       )}
                       {rankings.personal.bibleReading.topAndAbove.above.map((item, idx) => (
                         <div key={idx} className="other-rank-item">
-                          {item.rank}위 : {item.value}장({item.name})
+                          {item.rank}위 : {item.value}장
+                          ({item.name})
                         </div>
                       ))}
                     </div>

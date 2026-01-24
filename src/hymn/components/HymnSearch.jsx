@@ -6,13 +6,22 @@ import { sampleHymns } from '../data/sampleHymns';
 /**
  * 찬송가 검색 컴포넌트
  */
-const HymnSearch = ({ category, onSelectHymn, favorites, isFavorite, onToggleFavorite }) => {
+const HymnSearch = ({ category, onSelectHymn, favorites, isFavorite, onToggleFavorite, onClose, onCategoryChange }) => {
   const [searchQuery, setSearchQuery] = useState('');
-  const [searchType, setSearchType] = useState('all'); // 'all' | 'number' | 'title' | 'lyrics'
+  // localStorage에서 마지막 선택한 검색 타입 불러오기
+  const [searchType, setSearchType] = useState(() => {
+    const saved = localStorage.getItem('hymnSearchType');
+    return saved || 'all';
+  });
   const [hymns, setHymns] = useState([]);
   const [filteredHymns, setFilteredHymns] = useState([]);
   const [loading, setLoading] = useState(false);
   const [showFavorites, setShowFavorites] = useState(false);
+
+  // 검색 타입 변경 시 localStorage에 저장
+  useEffect(() => {
+    localStorage.setItem('hymnSearchType', searchType);
+  }, [searchType]);
 
   // Firebase에서 찬송가 목록 불러오기
   useEffect(() => {
@@ -20,6 +29,23 @@ const HymnSearch = ({ category, onSelectHymn, favorites, isFavorite, onToggleFav
   }, [category]);
 
   const loadHymns = async () => {
+    // localStorage에서 캐시된 데이터 확인 (영구 캐시)
+    const cacheKey = `hymns_${category}`;
+    const cachedData = localStorage.getItem(cacheKey);
+    
+    if (cachedData) {
+      try {
+        const parsed = JSON.parse(cachedData);
+        console.log(`캐시된 ${category} 찬송가 데이터 사용`);
+        setHymns(parsed.data);
+        setFilteredHymns(parsed.data);
+        setLoading(false);
+        return;
+      } catch (e) {
+        console.error('캐시 파싱 오류:', e);
+      }
+    }
+
     setLoading(true);
     try {
       const hymnsRef = collection(db, 'hymns');
@@ -47,6 +73,16 @@ const HymnSearch = ({ category, onSelectHymn, favorites, isFavorite, onToggleFav
           category: category,
           ...hymn
         }));
+      }
+      
+      // localStorage에 영구 캐시 저장
+      try {
+        localStorage.setItem(cacheKey, JSON.stringify({
+          data: hymnsList
+        }));
+        console.log(`${category} 찬송가 데이터 영구 캐시됨`);
+      } catch (e) {
+        console.error('캐시 저장 오류:', e);
       }
       
       setHymns(hymnsList);
@@ -98,46 +134,47 @@ const HymnSearch = ({ category, onSelectHymn, favorites, isFavorite, onToggleFav
         hymn.title.toLowerCase().includes(query) ||
         hymn.firstLine.toLowerCase().includes(query)
       );
-    } else if (searchType === 'lyrics') {
-      // 가사 검색은 Firebase에서 처리하거나 클라이언트에서 처리
-      filtered = hymns.filter(hymn => {
-        const lyrics = hymn.lyrics || [];
-        return lyrics.some(line => line.toLowerCase().includes(query));
-      });
     } else {
-      // 전체 검색
+      // 전체 검색 (번호 + 제목)
       filtered = hymns.filter(hymn => 
         hymn.number.toString().includes(query) ||
         hymn.title.toLowerCase().includes(query) ||
-        hymn.firstLine.toLowerCase().includes(query) ||
-        (hymn.lyrics || []).some(line => line.toLowerCase().includes(query))
+        hymn.firstLine.toLowerCase().includes(query)
       );
     }
 
     setFilteredHymns(filtered.slice(0, 50)); // 최대 50개
   }, [searchQuery, searchType, hymns, showFavorites, favorites, category]);
 
+  // 검색 placeholder 동적 생성
+  const getPlaceholder = () => {
+    if (searchType === 'number') return '장 검색...';
+    if (searchType === 'title') return '제목 검색...';
+    return '번호, 제목 검색...';
+  };
+
+  // 번호 검색인 경우 숫자 키보드 활성화
+  const getInputMode = () => {
+    return searchType === 'number' ? 'numeric' : 'text';
+  };
+
   return (
     <div className="hymn-search">
       <div className="hymn-search-controls">
-        <div className="hymn-search-input-wrapper">
-          <input
-            type="text"
-            className="hymn-search-input"
-            placeholder="찬송가 번호, 제목, 가사로 검색..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-          />
+        <div className="hymn-filter-row">
           <button
-            className={`hymn-favorite-toggle ${showFavorites ? 'active' : ''}`}
-            onClick={() => setShowFavorites(!showFavorites)}
-            title="즐겨찾기"
+            className={category === 'unified' ? 'active' : ''}
+            onClick={() => onCategoryChange && onCategoryChange('unified')}
           >
-            ⭐
+            통합
           </button>
-        </div>
-        
-        <div className="hymn-search-type-buttons">
+          <button
+            className={category === 'grace' ? 'active' : ''}
+            onClick={() => onCategoryChange && onCategoryChange('grace')}
+          >
+            은혜
+          </button>
+          <div className="hymn-divider"></div>
           <button
             className={searchType === 'all' ? 'active' : ''}
             onClick={() => setSearchType('all')}
@@ -156,11 +193,44 @@ const HymnSearch = ({ category, onSelectHymn, favorites, isFavorite, onToggleFav
           >
             제목
           </button>
+          <div style={{ flex: 1 }}></div>
+          {onClose && (
+            <button
+              className="hymn-close-btn-top"
+              onClick={onClose}
+              title="닫기"
+            >
+              ✕
+            </button>
+          )}
+        </div>
+        
+        <div className="hymn-search-input-row">
+          <div className="hymn-search-input-wrapper">
+            <input
+              type="text"
+              inputMode={getInputMode()}
+              className="hymn-search-input"
+              placeholder={getPlaceholder()}
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+            {searchQuery && (
+              <button
+                className="hymn-search-clear-btn"
+                onClick={() => setSearchQuery('')}
+                title="검색어 지우기"
+              >
+                ✕
+              </button>
+            )}
+          </div>
           <button
-            className={searchType === 'lyrics' ? 'active' : ''}
-            onClick={() => setSearchType('lyrics')}
+            className={`hymn-favorite-toggle ${showFavorites ? 'active' : ''}`}
+            onClick={() => setShowFavorites(!showFavorites)}
+            title="즐겨찾기"
           >
-            가사
+            ⭐
           </button>
         </div>
       </div>
@@ -179,12 +249,7 @@ const HymnSearch = ({ category, onSelectHymn, favorites, isFavorite, onToggleFav
                 onClick={() => onSelectHymn(hymn)}
               >
                 <div className="hymn-item-number">{hymn.number}</div>
-                <div className="hymn-item-content">
-                  <div className="hymn-item-title">{hymn.title}</div>
-                  {hymn.firstLine && (
-                    <div className="hymn-item-first-line">{hymn.firstLine}</div>
-                  )}
-                </div>
+                <div className="hymn-item-title">{hymn.title}</div>
                 <button
                   className={`hymn-item-favorite ${isFavorite(category, hymn.number) ? 'active' : ''}`}
                   onClick={(e) => {
