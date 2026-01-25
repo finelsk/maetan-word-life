@@ -20,7 +20,10 @@ const HymnModule = ({ onClose }) => {
   const [scrollSpeed, setScrollSpeed] = useState(0); // 0x, 0.5x, 1x, 1.5x (기본값 0x)
   const [autoScroll, setAutoScroll] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [searchType, setSearchType] = useState('all');
+  const [searchType, setSearchType] = useState(() => {
+    if (typeof window === 'undefined') return 'all';
+    return localStorage.getItem('hymnSearchType') || 'all';
+  });
   const [showFavorites, setShowFavorites] = useState(false);
   const [searchScrollTop, setSearchScrollTop] = useState(0);
   
@@ -110,6 +113,11 @@ const HymnModule = ({ onClose }) => {
       window.removeEventListener('orientationchange', updateOrientation);
     };
   }, []);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    localStorage.setItem('hymnSearchType', searchType);
+  }, [searchType]);
 
   // 찬송가 선택 핸들러 - 악보 전체화면으로 바로 표시
   const handleSelectHymn = async (hymn) => {
@@ -220,7 +228,6 @@ const HymnModule = ({ onClose }) => {
     setAutoScroll(false);
     setSelectedCategory('unified');
     setSearchQuery('');
-    setSearchType('all');
     setShowFavorites(false);
     setSearchScrollTop(0);
     if (onClose) {
