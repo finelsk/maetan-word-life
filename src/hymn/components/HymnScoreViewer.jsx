@@ -14,7 +14,8 @@ const HymnScoreViewer = ({
   onToggleFullscreen,
   onToggleLandscape,
   onToggleAutoScroll,
-  onScrollSpeedChange
+  onScrollSpeedChange,
+  onSwipeHymn
 }) => {
   const imageRef = useRef(null);
   const scrollContainerRef = useRef(null);
@@ -25,6 +26,7 @@ const HymnScoreViewer = ({
   const [isPausedByTouch, setIsPausedByTouch] = useState(false);
   const [isAtEnd, setIsAtEnd] = useState(false);
   const touchStartRef = useRef(null);
+  const swipeStartRef = useRef(null);
 
   // 이미지 URL 결정
   const imageUrl = isLandscape && hymn.scoreImageUrlLandscape
@@ -146,6 +148,7 @@ const HymnScoreViewer = ({
     
     touchStartRef.current = {
       x: e.touches[0].clientX, // 회전된 화면에서는 X가 스크롤 방향
+      y: e.touches[0].clientY,
       scrollTop: scrollContainerRef.current.scrollTop
     };
     
@@ -174,11 +177,29 @@ const HymnScoreViewer = ({
     }
   };
 
-  const handleTouchEnd = () => {
+  const handleTouchEnd = (e) => {
     if (!isLandscape || !isFullscreen) return;
     
     const container = scrollContainerRef.current;
     if (!container) return;
+
+    if (touchStartRef.current && e.changedTouches && e.changedTouches.length === 1) {
+      const touch = e.changedTouches[0];
+      const rawDx = touch.clientX - touchStartRef.current.x;
+      const rawDy = touch.clientY - touchStartRef.current.y;
+      const dx = -rawDy;
+      const dy = rawDx;
+      const absX = Math.abs(dx);
+      const absY = Math.abs(dy);
+
+      if (absX >= 50 && absX > absY * 1.2 && onSwipeHymn) {
+        if (dx < 0) {
+          onSwipeHymn('prev');
+        } else {
+          onSwipeHymn('next');
+        }
+      }
+    }
 
     // 끝에서 뒤로 스와이프하면 처음으로
     if (isAtEnd && container.scrollTop < container.scrollHeight - container.clientHeight - 50) {
@@ -189,6 +210,33 @@ const HymnScoreViewer = ({
     // 터치 종료 시 다시 스크롤 재개
     setIsPausedByTouch(false);
     touchStartRef.current = null;
+  };
+
+  const handleSwipeStart = (e) => {
+    if (isLandscape) return;
+    if (e.touches.length !== 1) return;
+    const touch = e.touches[0];
+    swipeStartRef.current = { x: touch.clientX, y: touch.clientY };
+  };
+
+  const handleSwipeEnd = (e) => {
+    if (isLandscape) return;
+    if (!swipeStartRef.current || e.changedTouches.length !== 1) return;
+    const touch = e.changedTouches[0];
+    const dx = touch.clientX - swipeStartRef.current.x;
+    const dy = touch.clientY - swipeStartRef.current.y;
+    const absX = Math.abs(dx);
+    const absY = Math.abs(dy);
+
+    swipeStartRef.current = null;
+
+    if (absX < 50 || absX < absY * 1.2) return;
+    if (!onSwipeHymn) return;
+    if (dx < 0) {
+      onSwipeHymn('next');
+    } else {
+      onSwipeHymn('prev');
+    }
   };
 
   // 처음으로 이동 핸들러
@@ -300,6 +348,11 @@ const HymnScoreViewer = ({
                   1.5x
                 </button>
               </div>
+              <div className="hymn-landscape-title">
+                <div className="hymn-landscape-title-line">
+                  {hymn.number}장. {hymn.title}
+                </div>
+              </div>
             </div>
             <div
               ref={scrollContainerRef}
@@ -350,6 +403,8 @@ const HymnScoreViewer = ({
         <div
           ref={scrollContainerRef}
           className={`hymn-score-container ${isFullscreen ? 'fullscreen' : ''}`}
+          onTouchStart={handleSwipeStart}
+          onTouchEnd={handleSwipeEnd}
         >
           {imageError ? (
             <div className="hymn-score-error">

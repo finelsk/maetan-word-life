@@ -4,6 +4,25 @@ import { db } from './firebase';
 import { queryGeminiAgent, fetchAllNames } from './geminiAgent';
 import HymnModule from './hymn/HymnModule';
 
+const MEMO_CACHE_DURATION = 7 * 24 * 60 * 60 * 1000; // 일주일 (7일)
+const BIBLE_TOTAL_CHAPTERS = 1189;
+const COMPLETION_NOTICE_KEY = 'wordLife_completion_notice';
+
+const getNextMidnightTimestamp = (baseTimestamp = Date.now()) => {
+  const date = new Date(baseTimestamp);
+  date.setHours(24, 0, 0, 0);
+  return date.getTime();
+};
+
+const getWeekSundayFromDate = (dateString) => {
+  const date = dateString ? new Date(dateString) : new Date();
+  const dayOfWeek = date.getDay(); // 0 = 일요일
+  const sunday = new Date(date);
+  sunday.setDate(date.getDate() - dayOfWeek);
+  sunday.setHours(0, 0, 0, 0);
+  return sunday.toISOString().split('T')[0]; // YYYY-MM-DD
+};
+
 // 성구암송 섹션 컴포넌트
 const BibleMemoSection = ({ selectedDate, onOpenHymn }) => {
   // 기본값은 '이번주', 기존에 저장된 값이 있으면 복원
@@ -38,6 +57,8 @@ const BibleMemoSection = ({ selectedDate, onOpenHymn }) => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentPlayingTab, setCurrentPlayingTab] = useState('thisWeek');
   const audioRef = React.useRef(null);
+  const wakeLockRef = React.useRef(null);
+  const swipeStartRef = React.useRef({ x: 0, y: 0 });
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isLandscape, setIsLandscape] = useState(() => {
     if (typeof window === 'undefined') return false;
@@ -112,6 +133,51 @@ const BibleMemoSection = ({ selectedDate, onOpenHymn }) => {
     }
   }, [mp3Urls, currentPlayingTab, isPlaying]);
 
+  // 재생 중 화면 꺼짐 방지 (Wake Lock 지원 브라우저)
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+
+    const requestWakeLock = async () => {
+      try {
+        if ('wakeLock' in navigator) {
+          wakeLockRef.current = await navigator.wakeLock.request('screen');
+        }
+      } catch (err) {
+        console.error('Wake Lock 요청 실패:', err);
+      }
+    };
+
+    const releaseWakeLock = async () => {
+      try {
+        if (wakeLockRef.current) {
+          await wakeLockRef.current.release();
+          wakeLockRef.current = null;
+        }
+      } catch (err) {
+        console.error('Wake Lock 해제 실패:', err);
+      }
+    };
+
+    if (isPlaying) {
+      requestWakeLock();
+    } else {
+      releaseWakeLock();
+    }
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible' && isPlaying && !wakeLockRef.current) {
+        requestWakeLock();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      releaseWakeLock();
+    };
+  }, [isPlaying]);
+
   // 재생/일시정지 토글
   const handlePlayPause = () => {
     const audio = audioRef.current;
@@ -154,6 +220,46 @@ const BibleMemoSection = ({ selectedDate, onOpenHymn }) => {
     if (tab === 'lastWeek') return 'thisWeek';
     if (tab === 'thisWeek') return 'nextWeek';
     return 'lastWeek';
+  };
+
+  // 좌우 스와이프로 탭 이동
+  const getAdjacentTab = (tab, direction) => {
+    if (direction === 'next') {
+      if (tab === 'lastWeek') return 'thisWeek';
+      if (tab === 'thisWeek') return 'nextWeek';
+      return 'nextWeek';
+    }
+    if (tab === 'nextWeek') return 'thisWeek';
+    if (tab === 'thisWeek') return 'lastWeek';
+    return 'lastWeek';
+  };
+
+  const handleSwipeMove = (direction) => {
+    setActiveTab((prev) => getAdjacentTab(prev, direction));
+  };
+
+  const handleTouchStart = (event) => {
+    if (event.touches.length !== 1) return;
+    const touch = event.touches[0];
+    swipeStartRef.current = { x: touch.clientX, y: touch.clientY };
+  };
+
+  const handleTouchEnd = (event) => {
+    if (event.changedTouches.length !== 1) return;
+    const touch = event.changedTouches[0];
+    const rawDx = touch.clientX - swipeStartRef.current.x;
+    const rawDy = touch.clientY - swipeStartRef.current.y;
+    const dx = isFullscreen ? -rawDy : rawDx;
+    const dy = isFullscreen ? rawDx : rawDy;
+    const absX = Math.abs(dx);
+    const absY = Math.abs(dy);
+
+    if (absX < 50 || absX < absY * 1.2) return;
+    if (dx < 0) {
+      handleSwipeMove('next');
+    } else {
+      handleSwipeMove('prev');
+    }
   };
 
   // 오디오 종료 시 동작
@@ -278,18 +384,7 @@ const BibleMemoSection = ({ selectedDate, onOpenHymn }) => {
     setLoading(true);
     setError('');
     
-    // 현재 주의 일요일 구하기
-    const getCurrentWeekSunday = () => {
-      const today = new Date();
-      const dayOfWeek = today.getDay(); // 0 = 일요일
-      const diff = dayOfWeek; // 일요일까지의 일수
-      const sunday = new Date(today);
-      sunday.setDate(today.getDate() - diff);
-      sunday.setHours(0, 0, 0, 0);
-      return sunday.toISOString().split('T')[0]; // YYYY-MM-DD
-    };
-
-    const weekSunday = getCurrentWeekSunday();
+    const weekSunday = getWeekSundayFromDate(selectedDate);
     const cacheKey = `bibleMemo_${weekSunday}`;
     const indicesKey = `${cacheKey}_indices_${currentIndices.lastWeek}_${currentIndices.thisWeek}_${currentIndices.nextWeek}`;
 
@@ -516,6 +611,16 @@ const BibleMemoSection = ({ selectedDate, onOpenHymn }) => {
     );
   };
 
+  const renderSwipeableContent = () => (
+    <div
+      className="bible-memo-swipe-area"
+      onTouchStart={handleTouchStart}
+      onTouchEnd={handleTouchEnd}
+    >
+      {renderContent()}
+    </div>
+  );
+
   return (
     <>
       <section className="bible-memo-section">
@@ -601,7 +706,14 @@ const BibleMemoSection = ({ selectedDate, onOpenHymn }) => {
               </button>
             )}
           </div>
-          <audio ref={audioRef} onEnded={handleEnded} className="bible-memo-audio" />
+          <audio
+            ref={audioRef}
+            onEnded={handleEnded}
+            onPause={() => setIsPlaying(false)}
+            preload="auto"
+            playsInline
+            className="bible-memo-audio"
+          />
         </div>
 
         <div className="bible-memo-tabs">
@@ -610,7 +722,7 @@ const BibleMemoSection = ({ selectedDate, onOpenHymn }) => {
           <TabButton tabKey="nextWeek" />
         </div>
 
-        {renderContent()}
+        {renderSwipeableContent()}
       </section>
       {isFullscreen && (
         <div
@@ -637,7 +749,7 @@ const BibleMemoSection = ({ selectedDate, onOpenHymn }) => {
                   <TabButton tabKey="nextWeek" />
                 </div>
               </div>
-              {renderContent()}
+              {renderSwipeableContent()}
             </section>
           </div>
         </div>
@@ -670,10 +782,10 @@ function App() {
   const [showSaveSuccessModal, setShowSaveSuccessModal] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [showHymnModule, setShowHymnModule] = useState(false);
+  const [completionNotice, setCompletionNotice] = useState(null);
 
   // 캐시 관리 (localStorage + 메모리 캐시)
   const BIBLE_READING_CACHE_DURATION = 24 * 60 * 60 * 1000; // 하루 (24시간)
-  const MEMO_CACHE_DURATION = 7 * 24 * 60 * 60 * 1000; // 일주일 (7일)
   const CACHE_KEYS = {
     RANKINGS: 'wordLife_rankings_cache',
     RANKINGS_TIMESTAMP: 'wordLife_rankings_timestamp',
@@ -746,10 +858,46 @@ function App() {
           localStorage.setItem(CACHE_KEYS.DATE_DATA, JSON.stringify(validCache));
         }
       }
+
+      // 완독 알림 캐시 불러오기 (자정까지 유지)
+      const completionNoticeCache = localStorage.getItem(COMPLETION_NOTICE_KEY);
+      if (completionNoticeCache) {
+        const parsed = JSON.parse(completionNoticeCache);
+        const now = Date.now();
+        const expiresAt = parsed.expiresAt || (parsed.timestamp ? getNextMidnightTimestamp(parsed.timestamp) : null);
+        if (expiresAt && now < expiresAt) {
+          const normalized = { ...parsed, expiresAt };
+          setCompletionNotice(normalized);
+          if (!parsed.expiresAt) {
+            localStorage.setItem(COMPLETION_NOTICE_KEY, JSON.stringify(normalized));
+          }
+        } else {
+          localStorage.removeItem(COMPLETION_NOTICE_KEY);
+        }
+      }
     } catch (error) {
       console.error('캐시 불러오기 오류:', error);
     }
   }, []);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (!completionNotice || !completionNotice.expiresAt) return;
+
+    const remaining = completionNotice.expiresAt - Date.now();
+    if (remaining <= 0) {
+      localStorage.removeItem(COMPLETION_NOTICE_KEY);
+      setCompletionNotice(null);
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      localStorage.removeItem(COMPLETION_NOTICE_KEY);
+      setCompletionNotice(null);
+    }, remaining);
+
+    return () => clearTimeout(timer);
+  }, [completionNotice]);
 
   // 날짜 포맷팅 함수
   const formatDate = (dateString) => {
@@ -1006,6 +1154,58 @@ function App() {
         return;
       }
 
+      // 완독 수 계산 (해당 사용자 누적 기준)
+      let completedRounds = 0;
+      let previousRounds = 0;
+      try {
+        const userQuery = query(
+          collection(db, 'wordLife'),
+          where('district', '==', parseInt(district)),
+          where('name', '==', trimmedName)
+        );
+        const userSnapshot = await getDocs(userQuery);
+        const latestByDate = new Map();
+
+        userSnapshot.docs.forEach((docSnapshot) => {
+          const data = docSnapshot.data();
+          const key = data.date;
+          if (!key) return;
+          const timestamp = data.timestamp?.toDate ? data.timestamp.toDate() : new Date(data.timestamp);
+          const existing = latestByDate.get(key);
+          if (!existing || timestamp > existing.timestamp) {
+            latestByDate.set(key, { data, timestamp });
+          }
+        });
+
+        let previousTotalReading = 0;
+        latestByDate.forEach((entry, key) => {
+          if (key === dateString) return;
+          previousTotalReading += entry.data.bibleReading || 0;
+        });
+        const newTotalReading = previousTotalReading + (newData.bibleReading || 0);
+        previousRounds = Math.floor(previousTotalReading / BIBLE_TOTAL_CHAPTERS);
+        completedRounds = Math.floor(newTotalReading / BIBLE_TOTAL_CHAPTERS);
+      } catch (roundError) {
+        console.error('완독 수 계산 오류:', roundError);
+      }
+
+      newData.completedRounds = completedRounds;
+
+      if (completedRounds > previousRounds) {
+        const noticeData = {
+          name: trimmedName,
+          rounds: completedRounds,
+          timestamp: Date.now(),
+          expiresAt: getNextMidnightTimestamp()
+        };
+        try {
+          localStorage.setItem(COMPLETION_NOTICE_KEY, JSON.stringify(noticeData));
+        } catch (noticeError) {
+          console.error('완독 알림 저장 오류:', noticeError);
+        }
+        setCompletionNotice(noticeData);
+      }
+
       // 문서 ID 생성 (날짜-구역-이름 조합)
       const docId = `${dateString}_${district}_${trimmedName}`;
       
@@ -1188,13 +1388,13 @@ function App() {
           personalStats[key] = {
             name: record.name,
             district: record.district,
-            bibleReading: 0,
+            totalReading: 0,
             bibleReadingDays: 0,
             sundayCount: 0,
             wednesdayCount: 0
           };
         }
-        personalStats[key].bibleReading += record.bibleReading || 0;
+        personalStats[key].totalReading += record.bibleReading || 0;
         if (record.bibleReading > 0) {
           personalStats[key].bibleReadingDays++;
         }
@@ -1234,12 +1434,18 @@ function App() {
         return ranked;
       };
 
+      Object.values(personalStats).forEach(stat => {
+        stat.completedRounds = Math.floor(stat.totalReading / BIBLE_TOTAL_CHAPTERS);
+        stat.readingRemainder = stat.totalReading % BIBLE_TOTAL_CHAPTERS;
+      });
+
       const personalBibleRanking = assignRanks(
         Object.values(personalStats)
           .map(stat => ({
             name: stat.name,
             district: stat.district,
-            value: stat.bibleReading
+            value: stat.readingRemainder,
+            completedRounds: stat.completedRounds
           }))
           .sort((a, b) => b.value - a.value)
       );
@@ -1277,7 +1483,9 @@ function App() {
       // 현재 사용자의 순위 찾기
       const currentUserKey = `${parseInt(district)}-${name}`;
       const currentUserStats = personalStats[currentUserKey] || {
-        bibleReading: 0,
+        totalReading: 0,
+        readingRemainder: 0,
+        completedRounds: 0,
         bibleReadingDays: 0,
         sundayCount: 0,
         wednesdayCount: 0
@@ -1377,9 +1585,9 @@ function App() {
         };
       };
 
-      // 성경읽기에 참여중인 전체 인원 계산 (bibleReading > 0인 사람)
+      // 성경읽기에 참여중인 전체 인원 계산 (총 읽기 > 0인 사람)
       const totalParticipants = Object.values(personalStats).filter(
-        stat => stat.bibleReading > 0
+        stat => stat.totalReading > 0
       ).length;
 
       const rankingsData = {
@@ -1390,7 +1598,8 @@ function App() {
         },
         personal: {
           bibleReading: {
-            value: currentUserStats.bibleReading,
+            value: currentUserStats.readingRemainder || 0,
+            completedRounds: currentUserStats.completedRounds || 0,
             rank: myBibleRank > 0 ? myBibleRank : null,
             rankRange: myBibleRankRange,
             topAndAbove: getTopAndAboveRanks(personalBibleRanking, myBibleRank, name, parseInt(district))
@@ -1688,6 +1897,16 @@ function App() {
             <div className="card-header">
               <h3>개인순위</h3>
             </div>
+            {completionNotice && (
+              <div className="bible-reading-notice">
+                <span className="bible-reading-notice-name">{completionNotice.name}</span>님이 성경을{' '}
+                <span className="bible-reading-notice-round">{completionNotice.rounds}</span>독
+                <span className="bible-reading-notice-medals">
+                  {'🥇'.repeat(completionNotice.rounds)}
+                </span>{' '}
+                하셨습니다.
+              </div>
+            )}
             <div className="personal-stats">
               <div className="personal-stat-item">
                 <div className="personal-stat-icon">📖</div>
@@ -1696,6 +1915,11 @@ function App() {
                   <div className="personal-stat-value">
                     <span className="value-number">{rankings.personal.bibleReading.value}</span>
                     <span className="value-unit">장</span>
+                    {rankings.personal.bibleReading.completedRounds > 0 && (
+                      <span className="bible-medals">
+                        {'🥇'.repeat(rankings.personal.bibleReading.completedRounds)}
+                      </span>
+                    )}
                   </div>
                   {rankings.personal.bibleReading.topAndAbove && (
                     <div className="personal-stat-others">
@@ -1703,12 +1927,22 @@ function App() {
                         <div className="other-rank-item">
                           1위 : {rankings.personal.bibleReading.topAndAbove.top.value}장
                           ({rankings.personal.bibleReading.topAndAbove.top.name})
+                          {rankings.personal.bibleReading.topAndAbove.top.completedRounds > 0 && (
+                            <span className="other-rank-medals">
+                              {'🥇'.repeat(rankings.personal.bibleReading.topAndAbove.top.completedRounds)}
+                            </span>
+                          )}
                         </div>
                       )}
                       {rankings.personal.bibleReading.topAndAbove.above.map((item, idx) => (
                         <div key={idx} className="other-rank-item">
                           {item.rank}위 : {item.value}장
                           ({item.name})
+                          {item.completedRounds > 0 && (
+                            <span className="other-rank-medals">
+                              {'🥇'.repeat(item.completedRounds)}
+                            </span>
+                          )}
                         </div>
                       ))}
                     </div>

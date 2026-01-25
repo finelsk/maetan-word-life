@@ -3,6 +3,7 @@ import { collection, getDocs, query, where, orderBy, doc, getDoc, setDoc, delete
 import { db } from '../firebase';
 import HymnSearch from './components/HymnSearch';
 import HymnScoreViewer from './components/HymnScoreViewer';
+import { sampleHymns } from './data/sampleHymns';
 import { useHymnCache } from './hooks/useHymnCache';
 import { useFavorites } from './hooks/useFavorites';
 import './styles/hymn.css';
@@ -18,6 +19,10 @@ const HymnModule = ({ onClose }) => {
   const [isLandscape, setIsLandscape] = useState(false);
   const [scrollSpeed, setScrollSpeed] = useState(0); // 0x, 0.5x, 1x, 1.5x (기본값 0x)
   const [autoScroll, setAutoScroll] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchType, setSearchType] = useState('all');
+  const [showFavorites, setShowFavorites] = useState(false);
+  const [searchScrollTop, setSearchScrollTop] = useState(0);
   
   const { getCachedHymn, cacheHymn } = useHymnCache();
   const { favorites, addFavorite, removeFavorite, isFavorite } = useFavorites();
@@ -167,12 +172,57 @@ const HymnModule = ({ onClose }) => {
     }
   };
 
+  const getHymnList = (category) => {
+    if (typeof window !== 'undefined') {
+      try {
+        const cacheKey = `hymns_${category}`;
+        const cachedData = localStorage.getItem(cacheKey);
+        if (cachedData) {
+          const parsed = JSON.parse(cachedData);
+          if (Array.isArray(parsed.data)) {
+            return parsed.data;
+          }
+        }
+      } catch (error) {
+        console.error('찬송가 목록 캐시 읽기 오류:', error);
+      }
+    }
+
+    const fallback = sampleHymns[category] || [];
+    return fallback.map((hymn) => ({
+      id: `${category}_${hymn.number}`,
+      category,
+      ...hymn
+    }));
+  };
+
+  const getAdjacentHymn = (currentNumber, direction) => {
+    const hymns = getHymnList(selectedCategory).slice().sort((a, b) => a.number - b.number);
+    const currentIndex = hymns.findIndex((item) => item.number === currentNumber);
+    if (currentIndex === -1) return null;
+    const nextIndex = direction === 'next' ? currentIndex + 1 : currentIndex - 1;
+    if (nextIndex < 0 || nextIndex >= hymns.length) return null;
+    return hymns[nextIndex];
+  };
+
+  const handleSwipeHymn = (direction) => {
+    if (!selectedHymn) return;
+    const nextHymn = getAdjacentHymn(selectedHymn.number, direction);
+    if (!nextHymn || nextHymn.number === selectedHymn.number) return;
+    handleSelectHymn(nextHymn);
+  };
+
   // 닫기 핸들러
   const handleClose = () => {
     setSelectedHymn(null);
     setViewMode('search');
     setIsFullscreen(false);
     setAutoScroll(false);
+    setSelectedCategory('unified');
+    setSearchQuery('');
+    setSearchType('all');
+    setShowFavorites(false);
+    setSearchScrollTop(0);
     if (onClose) {
       onClose();
     }
@@ -216,6 +266,14 @@ const HymnModule = ({ onClose }) => {
             setSelectedCategory(newCategory);
             setSelectedHymn(null);
           }}
+          searchQuery={searchQuery}
+          onSearchQueryChange={setSearchQuery}
+          searchType={searchType}
+          onSearchTypeChange={setSearchType}
+          showFavorites={showFavorites}
+          onShowFavoritesChange={setShowFavorites}
+          resultsScrollTop={searchScrollTop}
+          onResultsScrollTopChange={setSearchScrollTop}
         />
       )}
 
@@ -232,6 +290,7 @@ const HymnModule = ({ onClose }) => {
           onToggleLandscape={() => setIsLandscape(!isLandscape)}
           onToggleAutoScroll={() => setAutoScroll(!autoScroll)}
           onScrollSpeedChange={setScrollSpeed}
+          onSwipeHymn={handleSwipeHymn}
         />
       )}
     </div>

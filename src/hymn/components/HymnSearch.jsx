@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { collection, getDocs, query, where, orderBy, limit, startAfter } from 'firebase/firestore';
 import { db } from '../../firebase';
 import { sampleHymns } from '../data/sampleHymns';
@@ -6,22 +6,27 @@ import { sampleHymns } from '../data/sampleHymns';
 /**
  * 찬송가 검색 컴포넌트
  */
-const HymnSearch = ({ category, onSelectHymn, favorites, isFavorite, onToggleFavorite, onClose, onCategoryChange }) => {
-  const [searchQuery, setSearchQuery] = useState('');
-  // localStorage에서 마지막 선택한 검색 타입 불러오기
-  const [searchType, setSearchType] = useState(() => {
-    const saved = localStorage.getItem('hymnSearchType');
-    return saved || 'all';
-  });
+const HymnSearch = ({
+  category,
+  onSelectHymn,
+  favorites,
+  isFavorite,
+  onToggleFavorite,
+  onClose,
+  onCategoryChange,
+  searchQuery,
+  onSearchQueryChange,
+  searchType,
+  onSearchTypeChange,
+  showFavorites,
+  onShowFavoritesChange,
+  resultsScrollTop,
+  onResultsScrollTopChange
+}) => {
   const [hymns, setHymns] = useState([]);
   const [filteredHymns, setFilteredHymns] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [showFavorites, setShowFavorites] = useState(false);
-
-  // 검색 타입 변경 시 localStorage에 저장
-  useEffect(() => {
-    localStorage.setItem('hymnSearchType', searchType);
-  }, [searchType]);
+  const resultsRef = useRef(null);
 
   // Firebase에서 찬송가 목록 불러오기
   useEffect(() => {
@@ -146,6 +151,12 @@ const HymnSearch = ({ category, onSelectHymn, favorites, isFavorite, onToggleFav
     setFilteredHymns(filtered.slice(0, 50)); // 최대 50개
   }, [searchQuery, searchType, hymns, showFavorites, favorites, category]);
 
+  useEffect(() => {
+    if (!resultsRef.current) return;
+    if (typeof resultsScrollTop !== 'number') return;
+    resultsRef.current.scrollTop = resultsScrollTop;
+  }, [resultsScrollTop, loading, filteredHymns.length]);
+
   // 검색 placeholder 동적 생성
   const getPlaceholder = () => {
     if (searchType === 'number') return '장 검색...';
@@ -177,19 +188,19 @@ const HymnSearch = ({ category, onSelectHymn, favorites, isFavorite, onToggleFav
           <div className="hymn-divider"></div>
           <button
             className={searchType === 'all' ? 'active' : ''}
-            onClick={() => setSearchType('all')}
+            onClick={() => onSearchTypeChange('all')}
           >
             전체
           </button>
           <button
             className={searchType === 'number' ? 'active' : ''}
-            onClick={() => setSearchType('number')}
+            onClick={() => onSearchTypeChange('number')}
           >
             번호
           </button>
           <button
             className={searchType === 'title' ? 'active' : ''}
-            onClick={() => setSearchType('title')}
+            onClick={() => onSearchTypeChange('title')}
           >
             제목
           </button>
@@ -213,12 +224,12 @@ const HymnSearch = ({ category, onSelectHymn, favorites, isFavorite, onToggleFav
               className="hymn-search-input"
               placeholder={getPlaceholder()}
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={(e) => onSearchQueryChange(e.target.value)}
             />
             {searchQuery && (
               <button
                 className="hymn-search-clear-btn"
-                onClick={() => setSearchQuery('')}
+                onClick={() => onSearchQueryChange('')}
                 title="검색어 지우기"
               >
                 ✕
@@ -227,7 +238,7 @@ const HymnSearch = ({ category, onSelectHymn, favorites, isFavorite, onToggleFav
           </div>
           <button
             className={`hymn-favorite-toggle ${showFavorites ? 'active' : ''}`}
-            onClick={() => setShowFavorites(!showFavorites)}
+            onClick={() => onShowFavoritesChange(!showFavorites)}
             title="즐겨찾기"
           >
             ⭐
@@ -238,7 +249,11 @@ const HymnSearch = ({ category, onSelectHymn, favorites, isFavorite, onToggleFav
       {loading ? (
         <div className="hymn-loading">로딩 중...</div>
       ) : (
-        <div className="hymn-search-results">
+        <div
+          ref={resultsRef}
+          className="hymn-search-results"
+          onScroll={(e) => onResultsScrollTopChange(e.currentTarget.scrollTop)}
+        >
           {filteredHymns.length === 0 ? (
             <div className="hymn-no-results">검색 결과가 없습니다.</div>
           ) : (

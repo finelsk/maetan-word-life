@@ -12,6 +12,8 @@
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
 }
 
 .hymn-module.fullscreen {
@@ -658,6 +660,8 @@
   background-color: #000;
   z-index: 10003;
   overflow: hidden;
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
 }
 
 .hymn-landscape-container {
@@ -715,6 +719,22 @@
   user-select: none;
   -webkit-user-select: none;
   -webkit-touch-callout: none;
+}
+
+.hymn-landscape-title {
+  flex: 1;
+  min-width: 0;
+  text-align: center;
+  color: #fff;
+  font-weight: 600;
+}
+
+.hymn-landscape-title-line {
+  font-size: clamp(16px, 2.4vw, 26px);
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .hymn-landscape-control-btn {
