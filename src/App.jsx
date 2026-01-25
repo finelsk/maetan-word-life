@@ -1204,6 +1204,17 @@ function App() {
           console.error('완독 알림 저장 오류:', noticeError);
         }
         setCompletionNotice(noticeData);
+      } else {
+        try {
+          const cached = localStorage.getItem(COMPLETION_NOTICE_KEY);
+          const parsed = cached ? JSON.parse(cached) : completionNotice;
+          if (parsed && parsed.name === trimmedName && parsed.rounds > completedRounds) {
+            localStorage.removeItem(COMPLETION_NOTICE_KEY);
+            setCompletionNotice(null);
+          }
+        } catch (noticeError) {
+          console.error('완독 알림 삭제 오류:', noticeError);
+        }
       }
 
       // 문서 ID 생성 (날짜-구역-이름 조합)
