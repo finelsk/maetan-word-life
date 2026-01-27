@@ -1921,12 +1921,17 @@ function App() {
               <div className="bible-reading-notice-list">
                 {rankings.completers.map((completer, index) => (
                   <div key={index} className="bible-reading-notice">
-                    <span className="bible-reading-notice-name">{completer.name}</span> 성도님이 성경을{' '}
-                    <span className="bible-reading-notice-round">{completer.rounds}</span>독
-                    <span className="bible-reading-notice-medals">
-                      {'🥇'.repeat(completer.rounds)}
-                    </span>{' '}
-                    하셨습니다.
+                    <span className="bible-reading-notice-line1">
+                      <span className="bible-reading-notice-name">{completer.name}</span> 성도님이
+                    </span>
+                    <span className="bible-reading-notice-line2">
+                      성경을{' '}
+                      <span className="bible-reading-notice-round">{completer.rounds}</span>독
+                      <span className="bible-reading-notice-medals">
+                        {'🥇'.repeat(completer.rounds)}
+                      </span>{' '}
+                      하셨습니다.
+                    </span>
                   </div>
                 ))}
               </div>
