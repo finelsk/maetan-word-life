@@ -1191,30 +1191,10 @@ function App() {
 
       newData.completedRounds = completedRounds;
 
+      // 새로운 완독 달성 시 완독 시점 저장
       if (completedRounds > previousRounds) {
-        const noticeData = {
-          name: trimmedName,
-          rounds: completedRounds,
-          timestamp: Date.now(),
-          expiresAt: getNextMidnightTimestamp()
-        };
-        try {
-          localStorage.setItem(COMPLETION_NOTICE_KEY, JSON.stringify(noticeData));
-        } catch (noticeError) {
-          console.error('완독 알림 저장 오류:', noticeError);
-        }
-        setCompletionNotice(noticeData);
-      } else {
-        try {
-          const cached = localStorage.getItem(COMPLETION_NOTICE_KEY);
-          const parsed = cached ? JSON.parse(cached) : completionNotice;
-          if (parsed && parsed.name === trimmedName && parsed.rounds > completedRounds) {
-            localStorage.removeItem(COMPLETION_NOTICE_KEY);
-            setCompletionNotice(null);
-          }
-        } catch (noticeError) {
-          console.error('완독 알림 삭제 오류:', noticeError);
-        }
+        newData.lastCompletionAt = new Date();
+        newData.lastCompletionRounds = completedRounds;
       }
 
       // 문서 ID 생성 (날짜-구역-이름 조합)
@@ -1402,7 +1382,9 @@ function App() {
             totalReading: 0,
             bibleReadingDays: 0,
             sundayCount: 0,
-            wednesdayCount: 0
+            wednesdayCount: 0,
+            lastCompletionAt: null,
+            lastCompletionRounds: 0
           };
         }
         personalStats[key].totalReading += record.bibleReading || 0;
@@ -1414,6 +1396,14 @@ function App() {
         }
         if (record.wednesdayAttendance) {
           personalStats[key].wednesdayCount++;
+        }
+        // 완독 시점 추적 (가장 최신 완독 시점 저장)
+        if (record.lastCompletionAt) {
+          const completionTime = record.lastCompletionAt?.toDate ? record.lastCompletionAt.toDate() : new Date(record.lastCompletionAt);
+          if (!personalStats[key].lastCompletionAt || completionTime > personalStats[key].lastCompletionAt) {
+            personalStats[key].lastCompletionAt = completionTime;
+            personalStats[key].lastCompletionRounds = record.lastCompletionRounds || 0;
+          }
         }
       });
 
@@ -1601,8 +1591,27 @@ function App() {
         stat => stat.totalReading > 0
       ).length;
 
+      // 완독자 목록 추출 (최근 24시간 이내 완독자만)
+      const now = Date.now();
+      const COMPLETION_NOTICE_DURATION = 24 * 60 * 60 * 1000; // 24시간
+      
+      const completers = Object.values(personalStats)
+        .filter(stat => {
+          // 완독 기록이 있고, 최근 24시간 이내인 경우만
+          if (!stat.lastCompletionAt) return false;
+          const completionTime = stat.lastCompletionAt.getTime();
+          return (now - completionTime) < COMPLETION_NOTICE_DURATION;
+        })
+        .map(stat => ({
+          name: stat.name,
+          district: stat.district,
+          rounds: stat.lastCompletionRounds || stat.completedRounds
+        }))
+        .sort((a, b) => b.rounds - a.rounds);
+
       const rankingsData = {
         totalParticipants: totalParticipants,
+        completers: completers,
         district: {
           total: districtRankingTotal,
           onSite: districtRankingOnSite
@@ -1908,14 +1917,18 @@ function App() {
             <div className="card-header">
               <h3>개인순위</h3>
             </div>
-            {completionNotice && (
-              <div className="bible-reading-notice">
-                <span className="bible-reading-notice-name">{completionNotice.name}</span>님이 성경을{' '}
-                <span className="bible-reading-notice-round">{completionNotice.rounds}</span>독
-                <span className="bible-reading-notice-medals">
-                  {'🥇'.repeat(completionNotice.rounds)}
-                </span>{' '}
-                하셨습니다.
+            {rankings.completers && rankings.completers.length > 0 && (
+              <div className="bible-reading-notice-list">
+                {rankings.completers.map((completer, index) => (
+                  <div key={index} className="bible-reading-notice">
+                    <span className="bible-reading-notice-name">{completer.name}</span> 성도님이 성경을{' '}
+                    <span className="bible-reading-notice-round">{completer.rounds}</span>독
+                    <span className="bible-reading-notice-medals">
+                      {'🥇'.repeat(completer.rounds)}
+                    </span>{' '}
+                    하셨습니다.
+                  </div>
+                ))}
               </div>
             )}
             <div className="personal-stats">
