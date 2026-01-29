@@ -596,14 +596,13 @@ export const queryGeminiAgent = async (userQuestion, userName = null, options = 
     const dataText = formatDataForAnalysis(data, userName);
 
     // 3. Gemini 모델 초기화
-    // 최신 모델 이름 형식 시도 (2025년 기준)
+    // 안정 모델 gemini-2.5-flash 우선 (gemini-1.5-flash는 지원 종료)
+    // https://ai.google.dev/gemini-api/docs/models
     const modelNames = [
-      'gemini-1.5-flash-latest',
-      'gemini-1.5-pro-latest',
-      'gemini-1.5-flash',
-      'gemini-1.5-pro',
-      'gemini-pro',
-      'gemini-2.0-flash-exp'
+      'gemini-2.5-flash',      // Stable, 가격 대비 성능 우수
+      'gemini-2.0-flash',      // Latest fallback
+      'gemini-2.5-pro',        // Stable fallback
+      'gemini-2.0-flash-001'  // Stable fallback
     ];
     let model = null;
     
